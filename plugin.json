@@ -76,7 +76,7 @@
         "method": "GET",
         "path": "/admin/email-notifications/settings",
         "middlewares": [
-          { "name": "requireAuthn" },
+          { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
@@ -89,7 +89,7 @@
         "method": "PATCH",
         "path": "/admin/email-notifications/settings",
         "middlewares": [
-          { "name": "requireAuthn" },
+          { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
@@ -102,7 +102,7 @@
         "method": "GET",
         "path": "/admin/email-notifications/logs",
         "middlewares": [
-          { "name": "requireAuthn" },
+          { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
@@ -115,7 +115,7 @@
         "method": "POST",
         "path": "/admin/email-notifications/test",
         "middlewares": [
-          { "name": "requireAuthn" },
+          { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
@@ -128,7 +128,7 @@
         "method": "GET",
         "path": "/admin/email-notifications/overrides",
         "middlewares": [
-          { "name": "requireAuthn" },
+          { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
@@ -141,7 +141,7 @@
         "method": "PUT",
         "path": "/admin/email-notifications/overrides/:userId",
         "middlewares": [
-          { "name": "requireAuthn" },
+          { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
@@ -154,7 +154,7 @@
         "method": "POST",
         "path": "/admin/email-notifications/overrides/:userId",
         "middlewares": [
-          { "name": "requireAuthn" },
+          { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
@@ -167,7 +167,7 @@
         "method": "DELETE",
         "path": "/admin/email-notifications/overrides/:userId",
         "middlewares": [
-          { "name": "requireAuthn" },
+          { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",

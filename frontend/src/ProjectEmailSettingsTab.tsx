@@ -11,6 +11,7 @@ import {
   Bell,
   Info,
   ShieldCheck,
+  Sliders,
 } from "lucide-react";
 import {
   useProjectEmailSettings,
@@ -159,18 +160,18 @@ function Content(props: ProjectPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 p-6">
-      {/* Header */}
-      <div className="border-b border-border/40 pb-5">
+    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+      {/* Header Banner */}
+      <div className="flex flex-col gap-1.5 border-b border-border/40 pb-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Mail className="h-5 w-5" />
           </div>
           <div>
             <h2 className="text-xl font-semibold tracking-tight text-foreground">
               Email Notifications
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Automatically duplicates Paca notifications to user email addresses via Yandex Cloud Postbox, Resend, SendGrid, or Webhooks.
             </p>
           </div>
@@ -178,30 +179,33 @@ function Content(props: ProjectPageProps) {
       </div>
 
       {saveSuccessMessage && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-sm text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{saveSuccessMessage}</span>
         </div>
       )}
 
       {/* Info Callout */}
-      <div className="flex gap-3 rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
-        <Info className="h-5 w-5 shrink-0 text-primary" />
-        <div>
-          <span className="font-medium text-foreground">Username Email Policy: </span>
-          When an in-app notification is triggered, Paca inspects the recipient's username. If it is a valid email address (e.g. <code className="text-xs bg-muted px-1 py-0.5 rounded">alice@company.com</code>) or has an admin override, an email is dispatched. Non-email usernames are skipped safely.
+      <div className="flex gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 text-xs sm:text-sm text-muted-foreground">
+        <Info className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-primary mt-0.5" />
+        <div className="space-y-1">
+          <span className="font-semibold text-foreground">Recipient Email Resolution: </span>
+          <span>
+            When a notification triggers, Paca inspects the recipient's username. If it is formatted as an email (e.g. <code>user@company.com</code>) or configured via Admin Overrides, an email is dispatched. Other usernames are safely skipped.
+          </span>
         </div>
       </div>
 
+      {/* Main Settings Form */}
       <form onSubmit={handleSave} className="space-y-6">
         {/* Notification Triggers */}
-        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
           <div className="mb-4 flex items-center gap-2">
             <Bell className="h-4 w-4 text-primary" />
             <h3 className="text-base font-semibold text-foreground">Notification Triggers</h3>
           </div>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 text-sm cursor-pointer">
+          <div className="space-y-3.5">
+            <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
                 checked={formData.notify_on_assigned}
@@ -210,16 +214,16 @@ function Content(props: ProjectPageProps) {
               />
               <span className="text-foreground">Notify when a task is assigned to the user</span>
             </label>
-            <label className="flex items-center gap-3 text-sm cursor-pointer">
+            <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
                 checked={formData.notify_on_mentioned}
                 onChange={(e) => setFormData({ ...formData, notify_on_mentioned: e.target.checked })}
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
               />
-              <span className="text-foreground">Notify when the user is @-mentioned in task comments</span>
+              <span className="text-foreground">Notify when the user is @-mentioned in comments</span>
             </label>
-            <label className="flex items-center gap-3 text-sm cursor-pointer">
+            <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
                 checked={formData.notify_on_update}
@@ -232,8 +236,8 @@ function Content(props: ProjectPageProps) {
         </div>
 
         {/* Project Custom Provider */}
-        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-primary" />
               <h3 className="text-base font-semibold text-foreground">Email Service Provider</h3>
@@ -250,7 +254,7 @@ function Content(props: ProjectPageProps) {
           </div>
 
           {useCustomProjectProvider ? (
-            <div className="space-y-4 pt-2">
+            <div className="space-y-4 pt-1">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-foreground">
                   Provider
@@ -315,7 +319,7 @@ function Content(props: ProjectPageProps) {
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-foreground">
-                    Sender Name
+                    Sender Display Name
                   </label>
                   <input
                     type="text"
@@ -329,7 +333,7 @@ function Content(props: ProjectPageProps) {
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              This project inherits global instance email configuration configured by the administrator in Admin Settings.
+              This project inherits the global instance email configuration set by the administrator in Admin Settings.
             </p>
           )}
         </div>
@@ -338,7 +342,7 @@ function Content(props: ProjectPageProps) {
           <button
             type="submit"
             disabled={updateSettingsMutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
@@ -347,7 +351,7 @@ function Content(props: ProjectPageProps) {
       </form>
 
       {/* Test Email Section */}
-      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+      <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
         <div className="mb-4 flex items-center gap-2">
           <Send className="h-4 w-4 text-primary" />
           <h3 className="text-base font-semibold text-foreground">Send Test Email</h3>
@@ -396,7 +400,7 @@ function Content(props: ProjectPageProps) {
       </div>
 
       {/* Audit Log Table */}
-      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+      <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-foreground">Delivery Audit Log</h3>
           <button
@@ -418,11 +422,11 @@ function Content(props: ProjectPageProps) {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-border/40 text-muted-foreground">
-                  <th className="py-2 font-medium">Status</th>
-                  <th className="py-2 font-medium">Recipient</th>
-                  <th className="py-2 font-medium">Subject</th>
-                  <th className="py-2 font-medium">Type</th>
-                  <th className="py-2 font-medium">Time</th>
+                  <th className="py-2.5 font-medium">Status</th>
+                  <th className="py-2.5 font-medium">Recipient</th>
+                  <th className="py-2.5 font-medium">Subject</th>
+                  <th className="py-2.5 font-medium">Type</th>
+                  <th className="py-2.5 font-medium">Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">

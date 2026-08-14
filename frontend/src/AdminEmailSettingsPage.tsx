@@ -190,18 +190,18 @@ function Content(props: AdminPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 p-8">
+    <div className="mx-auto max-w-5xl space-y-6 p-6 sm:p-8">
       {/* Header */}
-      <div className="border-b border-border/40 pb-5">
+      <div className="flex flex-col gap-1.5 border-b border-border/40 pb-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Mail className="h-5 w-5" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Email Notifications Settings
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Configure global outbound email delivery for Paca notifications (task assignments, mentions, updates).
             </p>
           </div>
@@ -209,31 +209,32 @@ function Content(props: AdminPageProps) {
       </div>
 
       {saveSuccessMessage && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-sm text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{saveSuccessMessage}</span>
         </div>
       )}
 
       {/* Info Banner */}
-      <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-foreground">
-        <Info className="h-5 w-5 shrink-0 text-primary" />
-        <div className="space-y-1">
-          <div className="font-semibold">How recipient email routing works:</div>
-          <div className="text-xs text-muted-foreground leading-relaxed">
-            1. <strong>Direct Email Usernames:</strong> If a user's login username is an email address (e.g. <code>alice@company.com</code>), notifications are sent directly to that address.<br />
-            2. <strong>User Email Overrides:</strong> If a user has a text login (e.g. <code>admin</code>, <code>john</code>), you can map their User ID to an email in the table below.<br />
-            3. <strong>Safe Skipping:</strong> Users without a valid email username or override will not receive email notifications.
+      <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs sm:text-sm text-foreground">
+        <Info className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-primary mt-0.5" />
+        <div className="space-y-1.5 leading-relaxed">
+          <div className="font-semibold text-foreground">How recipient email routing works:</div>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <div>1. <strong>Direct Email Usernames:</strong> If a user's username is an email address (e.g. <code>alice@company.com</code>), notifications are sent directly to that address.</div>
+            <div>2. <strong>User Email Overrides:</strong> If a user has a username handle (e.g. <code>admin</code>, <code>john</code>), map their User ID to an email in the table below.</div>
+            <div>3. <strong>Safe Skipping:</strong> Users without a valid email username or override will not receive email notifications.</div>
           </div>
         </div>
       </div>
 
+      {/* Settings Form */}
       <form onSubmit={handleSave} className="space-y-6">
         {/* Provider Configuration */}
-        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
           <div className="mb-4 flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Global Email Provider</h2>
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <h2 className="text-base sm:text-lg font-semibold text-foreground">Global Email Provider</h2>
           </div>
 
           <div className="space-y-4">
@@ -316,13 +317,13 @@ function Content(props: AdminPageProps) {
         </div>
 
         {/* Global Notification Triggers */}
-        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
           <div className="mb-4 flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Default Notification Triggers</h2>
+            <Bell className="h-4 w-4 text-primary" />
+            <h2 className="text-base sm:text-lg font-semibold text-foreground">Default Notification Triggers</h2>
           </div>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 text-sm cursor-pointer">
+          <div className="space-y-3.5">
+            <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
                 checked={formData.notify_on_assigned}
@@ -331,7 +332,7 @@ function Content(props: AdminPageProps) {
               />
               <span className="text-foreground">Notify when a task is assigned to a user</span>
             </label>
-            <label className="flex items-center gap-3 text-sm cursor-pointer">
+            <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
                 checked={formData.notify_on_mentioned}
@@ -340,7 +341,7 @@ function Content(props: AdminPageProps) {
               />
               <span className="text-foreground">Notify when a user is @-mentioned in comments</span>
             </label>
-            <label className="flex items-center gap-3 text-sm cursor-pointer">
+            <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
                 checked={formData.notify_on_update}
@@ -356,7 +357,7 @@ function Content(props: AdminPageProps) {
           <button
             type="submit"
             disabled={updateSettingsMutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow transition hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             {updateSettingsMutation.isPending ? "Saving..." : "Save Global Settings"}
@@ -365,10 +366,10 @@ function Content(props: AdminPageProps) {
       </form>
 
       {/* Test Email Section */}
-      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+      <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
         <div className="mb-4 flex items-center gap-2">
-          <Send className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Send Test Email</h2>
+          <Send className="h-4 w-4 text-primary" />
+          <h2 className="text-base sm:text-lg font-semibold text-foreground">Send Test Email</h2>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
           Send a diagnostic test email to verify credentials and endpoint reachability.
@@ -414,11 +415,11 @@ function Content(props: AdminPageProps) {
       </div>
 
       {/* User Email Overrides Section */}
-      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+      <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">User Email Overrides</h2>
+            <Users className="h-4 w-4 text-primary" />
+            <h2 className="text-base sm:text-lg font-semibold text-foreground">User Email Overrides</h2>
           </div>
           <button
             type="button"
@@ -474,10 +475,10 @@ function Content(props: AdminPageProps) {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-border/40 text-muted-foreground">
-                  <th className="py-2 font-medium">User ID</th>
-                  <th className="py-2 font-medium">Destination Email</th>
-                  <th className="py-2 font-medium">Updated</th>
-                  <th className="py-2 text-right font-medium">Actions</th>
+                  <th className="py-2.5 font-medium">User ID</th>
+                  <th className="py-2.5 font-medium">Destination Email</th>
+                  <th className="py-2.5 font-medium">Updated</th>
+                  <th className="py-2.5 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">
@@ -507,9 +508,9 @@ function Content(props: AdminPageProps) {
       </div>
 
       {/* Global Delivery Audit Log */}
-      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+      <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Global Delivery Audit Log</h2>
+          <h2 className="text-base sm:text-lg font-semibold text-foreground">Global Delivery Audit Log</h2>
           <button
             type="button"
             onClick={() => refetchLogs()}
@@ -529,12 +530,12 @@ function Content(props: AdminPageProps) {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-border/40 text-muted-foreground">
-                  <th className="py-2 font-medium">Status</th>
-                  <th className="py-2 font-medium">Recipient</th>
-                  <th className="py-2 font-medium">Subject</th>
-                  <th className="py-2 font-medium">Type</th>
-                  <th className="py-2 font-medium">Project</th>
-                  <th className="py-2 font-medium">Time</th>
+                  <th className="py-2.5 font-medium">Status</th>
+                  <th className="py-2.5 font-medium">Recipient</th>
+                  <th className="py-2.5 font-medium">Subject</th>
+                  <th className="py-2.5 font-medium">Type</th>
+                  <th className="py-2.5 font-medium">Project</th>
+                  <th className="py-2.5 font-medium">Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">
