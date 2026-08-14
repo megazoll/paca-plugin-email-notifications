@@ -335,3 +335,97 @@ func TestAWSSigV4(t *testing.T) {
 		t.Errorf("missing signed headers in: %s", authHeader)
 	}
 }
+
+func TestTaskCreated_ActivityEvent_SendsEmail(t *testing.T) {
+	tc, p := setupTestPlugin(t)
+
+	// Seed task_assignees
+	tc.DB.SeedRows("task_assignees",
+		[]string{"task_id", "member_id"},
+		[][]any{
+			{"task-1", "pm-1"},
+		},
+	)
+
+	var sentReq fetchHostRequest
+	mockHTTPClient = func(req fetchHostRequest) (*fetchHostResponse, error) {
+		sentReq = req
+		return &fetchHostResponse{
+			Status: 200,
+			Body:   `{"MessageId":"msg-task-created"}`,
+		}, nil
+	}
+	defer func() { mockHTTPClient = nil }()
+
+	rawPayload := []byte(`{
+		"id": "act-1",
+		"task_id": "task-1",
+		"project_id": "` + testProjectID + `",
+		"activity_type": "task.created",
+		"actor_id": "actor-user",
+		"content": "{\"title\":\"Refactor UI\"}",
+		"created_at": "2026-08-14T14:00:00Z"
+	}`)
+
+	evt := &plugin.Event{
+		Topic:   "task.created",
+		Payload: rawPayload,
+	}
+
+	p.onTaskActivityEvent(evt)
+
+	if sentReq.URL != "https://postbox.cloud.yandex.net/v2/email/outbound-emails" {
+		t.Fatalf("expected send request to yandex postbox endpoint, got: %s", sentReq.URL)
+	}
+
+	if !strings.Contains(sentReq.Body, "alex@company.com") {
+		t.Errorf("expected body to contain alex@company.com, got: %s", sentReq.Body)
+	}
+
+	logs, err := p.loadLogs("", 10)
+	if err != nil || len(logs) == 0 {
+		t.Fatalf("expected email log, got %v", err)
+	}
+	if logs[0].Status != "sent" {
+		t.Errorf("expected status 'sent', got %v", logs[0].Status)
+	}
+}
+
+func TestComment_Mention_SendsEmail(t *testing.T) {
+	_, p := setupTestPlugin(t)
+
+	var sentReq fetchHostRequest
+	mockHTTPClient = func(req fetchHostRequest) (*fetchHostResponse, error) {
+		sentReq = req
+		return &fetchHostResponse{
+			Status: 200,
+			Body:   `{"MessageId":"msg-comment-mention"}`,
+		}, nil
+	}
+	defer func() { mockHTTPClient = nil }()
+
+	rawPayload := []byte(`{
+		"id": "act-comment-1",
+		"task_id": "task-1",
+		"project_id": "` + testProjectID + `",
+		"activity_type": "comment",
+		"actor_id": "actor-user",
+		"content": "Hey @alex@company.com please review this!",
+		"created_at": "2026-08-14T14:05:00Z"
+	}`)
+
+	evt := &plugin.Event{
+		Topic:   "comment",
+		Payload: rawPayload,
+	}
+
+	p.onCommentActivityEvent(evt)
+
+	if sentReq.URL != "https://postbox.cloud.yandex.net/v2/email/outbound-emails" {
+		t.Fatalf("expected send request to yandex postbox, got: %s", sentReq.URL)
+	}
+
+	if !strings.Contains(sentReq.Body, "alex@company.com") {
+		t.Errorf("expected body to contain alex@company.com, got: %s", sentReq.Body)
+	}
+}

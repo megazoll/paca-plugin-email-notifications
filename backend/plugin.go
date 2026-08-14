@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var mentionRegex = regexp.MustCompile(`@([a-zA-Z0-9_.-]+)`)
+var plainMentionRegex = regexp.MustCompile(`@([a-zA-Z0-9_.+-]+(?:@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)?|[a-zA-Z0-9_.-]+)`)
 
 // emailPlugin implements plugin.Plugin.
 type emailPlugin struct {
@@ -94,14 +94,11 @@ func (p *emailPlugin) onTaskActivityEvent(evt *plugin.Event) {
 	// Load task info
 	taskNumber := 0
 	taskTitle := ""
-	taskRes, _ := p.db.Query(`SELECT task_number, title, project_id FROM tasks WHERE id = $1`, taskID)
+	taskRes, _ := p.db.Query(`SELECT task_number, title FROM tasks WHERE id = $1`, taskID)
 	if len(taskRes.Rows) > 0 {
 		sc := newRowScanner(taskRes.Columns, taskRes.Rows[0])
 		taskNumber = sc.intVal("task_number", 0)
 		taskTitle = sc.str("title")
-		if projectID == "" {
-			projectID = sc.str("project_id")
-		}
 	}
 
 	// Load project info
@@ -141,21 +138,22 @@ func (p *emailPlugin) onTaskActivityEvent(evt *plugin.Event) {
 		}
 	}
 
-	// Find assignees of the task
-	assigneesRes, err := p.db.Query(`
-		SELECT pm.user_id 
-		FROM task_assignees ta 
-		JOIN project_members pm ON ta.member_id = pm.id 
-		WHERE ta.task_id = $1
-	`, taskID)
-
+	// Find assignees of the task (two-step lookup for maximum compatibility)
 	assigneeUserIDs := make([]string, 0)
+	assigneesRes, err := p.db.Query(`SELECT member_id FROM task_assignees WHERE task_id = $1`, taskID)
 	if err == nil {
 		for _, row := range assigneesRes.Rows {
 			sc := newRowScanner(assigneesRes.Columns, row)
-			uid := sc.str("user_id")
-			if uid != "" {
-				assigneeUserIDs = append(assigneeUserIDs, uid)
+			memberID := sc.str("member_id")
+			if memberID != "" {
+				pmRes, _ := p.db.Query(`SELECT user_id FROM project_members WHERE id = $1`, memberID)
+				if len(pmRes.Rows) > 0 {
+					pmSc := newRowScanner(pmRes.Columns, pmRes.Rows[0])
+					uid := pmSc.str("user_id")
+					if uid != "" {
+						assigneeUserIDs = append(assigneeUserIDs, uid)
+					}
+				}
 			}
 		}
 	}
@@ -225,14 +223,11 @@ func (p *emailPlugin) onCommentActivityEvent(evt *plugin.Event) {
 
 	taskNumber := 0
 	taskTitle := ""
-	taskRes, _ := p.db.Query(`SELECT task_number, title, project_id FROM tasks WHERE id = $1`, taskID)
+	taskRes, _ := p.db.Query(`SELECT task_number, title FROM tasks WHERE id = $1`, taskID)
 	if len(taskRes.Rows) > 0 {
 		sc := newRowScanner(taskRes.Columns, taskRes.Rows[0])
 		taskNumber = sc.intVal("task_number", 0)
 		taskTitle = sc.str("title")
-		if projectID == "" {
-			projectID = sc.str("project_id")
-		}
 	}
 
 	projectName := "Project"
@@ -270,29 +265,53 @@ func (p *emailPlugin) onCommentActivityEvent(evt *plugin.Event) {
 		}
 	}
 
-	// Extract mentions
-	contentStr := string(payload.Content)
-	matches := mentionRegex.FindAllStringSubmatch(contentStr, -1)
 	notifiedUsers := make(map[string]bool)
 
+	// 1. Structured BlockNote team mentions
+	var blocks []struct {
+		Content []struct {
+			Type  string         `json:"type"`
+			Props map[string]any `json:"props"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(payload.Content, &blocks); err == nil {
+		for _, block := range blocks {
+			for _, item := range block.Content {
+				if item.Type == "teamMention" && item.Props != nil {
+					if idStr, ok := item.Props["id"].(string); ok && idStr != "" {
+						if idStr != actorUserID && !notifiedUsers[idStr] {
+							notifiedUsers[idStr] = true
+							p.dispatchEmailNotification(settings, projectID, taskID, idStr, actorName, projectName, taskPrefix, taskNumber, taskTitle, "mentioned", payload.CreatedAt)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Plain text mentions (@username or @email)
+	contentStr := string(payload.Content)
+	matches := plainMentionRegex.FindAllStringSubmatch(contentStr, -1)
 	for _, match := range matches {
 		if len(match) < 2 {
 			continue
 		}
-		username := strings.TrimSpace(match[1])
-		if username == "" {
+		rawMention := strings.TrimSpace(match[1])
+		if rawMention == "" {
 			continue
 		}
-		uRes, err := p.db.Query(`SELECT id FROM users WHERE LOWER(username) = LOWER($1)`, username)
-		if err != nil || len(uRes.Rows) == 0 {
-			continue
+		uRes, err := p.db.Query(`SELECT id FROM users WHERE username = $1`, rawMention)
+		if (err != nil || len(uRes.Rows) == 0) && strings.Contains(rawMention, "@") {
+			// Try case-insensitive fallback
+			uRes, _ = p.db.Query(`SELECT id FROM users WHERE LOWER(username) = LOWER($1)`, rawMention)
 		}
-		uid := newRowScanner(uRes.Columns, uRes.Rows[0]).str("id")
-		if uid == "" || uid == actorUserID || notifiedUsers[uid] {
-			continue
+		if err == nil && len(uRes.Rows) > 0 {
+			uid := newRowScanner(uRes.Columns, uRes.Rows[0]).str("id")
+			if uid != "" && uid != actorUserID && !notifiedUsers[uid] {
+				notifiedUsers[uid] = true
+				p.dispatchEmailNotification(settings, projectID, taskID, uid, actorName, projectName, taskPrefix, taskNumber, taskTitle, "mentioned", payload.CreatedAt)
+			}
 		}
-		notifiedUsers[uid] = true
-		p.dispatchEmailNotification(settings, projectID, taskID, uid, actorName, projectName, taskPrefix, taskNumber, taskTitle, "mentioned", payload.CreatedAt)
 	}
 }
 
