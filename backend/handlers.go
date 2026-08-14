@@ -8,6 +8,7 @@ import (
 	"time"
 
 	plugin "github.com/Paca-AI/plugin-sdk-go"
+	"github.com/google/uuid"
 )
 
 type envelope struct {
@@ -217,7 +218,7 @@ func (p *emailPlugin) testProjectEmail(req *plugin.Request, res *plugin.Response
 	}
 
 	_ = p.recordLog(EmailLog{
-		ID:               fmt.Sprintf("test-%d", timeNowNano()),
+		ID:               uuid.NewString(),
 		ProjectID:        projectID,
 		RecipientEmail:   input.ToEmail,
 		NotificationType: "test",
@@ -286,7 +287,7 @@ func (p *emailPlugin) testAdminEmail(req *plugin.Request, res *plugin.Response) 
 	}
 
 	_ = p.recordLog(EmailLog{
-		ID:               fmt.Sprintf("test-%d", timeNowNano()),
+		ID:               uuid.NewString(),
 		RecipientEmail:   input.ToEmail,
 		NotificationType: "test",
 		Subject:          testMail.Subject,
@@ -469,7 +470,7 @@ func (p *emailPlugin) saveSettings(scope, projectID string, input UpdateSettings
 			string(current.Provider), current.Endpoint, current.APIKey, current.FromEmail, current.FromName, current.NotifyOnAssigned, current.NotifyOnMentioned, current.NotifyOnUpdate, now, id,
 		)
 	} else {
-		id := fmt.Sprintf("email-cfg-%d", timeNowNano())
+		id := uuid.NewString()
 		current.ID = id
 		current.CreatedAt = now
 		var pid any
@@ -527,6 +528,10 @@ func (p *emailPlugin) recordLog(l EmailLog) error {
 	if l.ProjectID != "" {
 		pid = l.ProjectID
 	}
+	var ruid any
+	if l.RecipientUserID != "" {
+		ruid = l.RecipientUserID
+	}
 	var errMsg any
 	if l.ErrorMessage != "" {
 		errMsg = l.ErrorMessage
@@ -534,7 +539,7 @@ func (p *emailPlugin) recordLog(l EmailLog) error {
 
 	_, err := p.db.Exec(
 		`INSERT INTO email_logs (id, project_id, recipient_user_id, recipient_email, notification_type, subject, status, error_message, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		l.ID, pid, l.RecipientUserID, l.RecipientEmail, l.NotificationType, l.Subject, l.Status, errMsg, l.CreatedAt,
+		l.ID, pid, ruid, l.RecipientEmail, l.NotificationType, l.Subject, l.Status, errMsg, l.CreatedAt,
 	)
 	return err
 }

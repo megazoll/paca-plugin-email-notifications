@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	plugin "github.com/Paca-AI/plugin-sdk-go"
+	"github.com/google/uuid"
 )
 
 // emailPlugin implements plugin.Plugin.
@@ -167,7 +168,7 @@ func (p *emailPlugin) onNotificationCreated(evt *plugin.Event) {
 
 	// Record in audit log
 	_ = p.recordLog(EmailLog{
-		ID:               fmt.Sprintf("log-%d", timeNowNano()),
+		ID:               uuid.NewString(),
 		ProjectID:        payload.ProjectID,
 		RecipientUserID:  payload.RecipientUserID,
 		RecipientEmail:   recipientEmail,
