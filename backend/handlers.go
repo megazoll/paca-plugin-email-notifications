@@ -524,24 +524,33 @@ func (p *emailPlugin) loadLogs(projectID string, limit int) ([]EmailLog, error) 
 }
 
 func (p *emailPlugin) recordLog(l EmailLog) error {
-	var pid any
-	if l.ProjectID != "" {
-		pid = l.ProjectID
+	id := l.ID
+	if id == "" {
+		id = uuid.NewString()
 	}
-	var ruid any
-	if l.RecipientUserID != "" {
-		ruid = l.RecipientUserID
+	ruid := l.RecipientUserID
+	if ruid == "" {
+		ruid = ""
 	}
-	var errMsg any
-	if l.ErrorMessage != "" {
-		errMsg = l.ErrorMessage
+	pid := l.ProjectID
+	errMsg := l.ErrorMessage
+	now := l.CreatedAt
+	if now == "" {
+		now = nowStr()
 	}
 
-	_, err := p.db.Exec(
-		`INSERT INTO email_logs (id, project_id, recipient_user_id, recipient_email, notification_type, subject, status, error_message, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		l.ID, pid, ruid, l.RecipientEmail, l.NotificationType, l.Subject, l.Status, errMsg, l.CreatedAt,
+	_, err := p.db.Query(
+		`INSERT INTO email_logs (id, project_id, recipient_user_id, recipient_email, notification_type, subject, status, error_message, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		 RETURNING id`,
+		id, pid, ruid, l.RecipientEmail, l.NotificationType, l.Subject, l.Status, errMsg, now,
 	)
-	return err
+	if err != nil {
+		p.log.Error("email: recordLog failed: " + err.Error())
+		return err
+	}
+	p.log.Info(fmt.Sprintf("email: recorded log: id=%s recipient=%s status=%s", id, l.RecipientEmail, l.Status))
+	return nil
 }
 
 func (p *emailPlugin) loadOverrides() ([]UserEmailOverride, error) {

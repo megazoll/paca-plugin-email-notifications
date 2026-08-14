@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS smtp_settings (
 CREATE TABLE IF NOT EXISTS email_logs (
     id VARCHAR(64) PRIMARY KEY,
     project_id VARCHAR(64),
-    recipient_user_id VARCHAR(64) NOT NULL,
+    recipient_user_id VARCHAR(64) DEFAULT '',
     recipient_email VARCHAR(255) NOT NULL,
     notification_type VARCHAR(64) NOT NULL,
     subject VARCHAR(255) NOT NULL,
