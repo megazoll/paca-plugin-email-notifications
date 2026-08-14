@@ -17,7 +17,8 @@
       "notification.created",
       "task.created",
       "task.updated",
-      "task.comment.added"
+      "task.comment.added",
+      "comment"
     ],
     "routes": [
       {
