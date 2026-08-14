@@ -159,9 +159,15 @@ function Content(props: ProjectPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl flex flex-col gap-8 p-4 sm:p-6">
+    <div
+      className="mx-auto max-w-4xl flex flex-col gap-6 p-4 sm:p-6"
+      style={{ display: "flex", flexDirection: "column", gap: "28px" }}
+    >
       {/* Header Banner */}
-      <div className="flex flex-col gap-1.5 border-b border-border/40 pb-5">
+      <div
+        className="flex flex-col gap-1.5 border-b border-border/40 pb-5"
+        style={{ marginBottom: "4px" }}
+      >
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Mail className="h-5 w-5" />
@@ -185,7 +191,10 @@ function Content(props: ProjectPageProps) {
       )}
 
       {/* Info Callout */}
-      <div className="flex gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 sm:p-5 text-xs sm:text-sm text-muted-foreground">
+      <div
+        className="flex gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 sm:p-5 text-xs sm:text-sm text-muted-foreground"
+        style={{ marginBottom: "8px" }}
+      >
         <Info className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-primary mt-0.5" />
         <div className="space-y-1.5 leading-relaxed">
           <div className="font-semibold text-foreground">Recipient Email Resolution: </div>
@@ -196,14 +205,21 @@ function Content(props: ProjectPageProps) {
       </div>
 
       {/* Main Settings Form */}
-      <form onSubmit={handleSave} className="flex flex-col gap-6">
+      <form
+        onSubmit={handleSave}
+        className="flex flex-col gap-6"
+        style={{ display: "flex", flexDirection: "column", gap: "24px", marginBottom: "8px" }}
+      >
         {/* Notification Triggers */}
         <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-          <div className="mb-5 flex items-center gap-2">
+          <div className="mb-5 flex items-center gap-2" style={{ marginBottom: "16px" }}>
             <Bell className="h-4 w-4 text-primary" />
             <h3 className="text-base font-semibold text-foreground">Notification Triggers</h3>
           </div>
-          <div className="flex flex-col gap-3.5">
+          <div
+            className="flex flex-col gap-3.5"
+            style={{ display: "flex", flexDirection: "column", gap: "14px" }}
+          >
             <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
@@ -236,7 +252,10 @@ function Content(props: ProjectPageProps) {
 
         {/* Project Custom Provider */}
         <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+            style={{ marginBottom: "16px" }}
+          >
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-primary" />
               <h3 className="text-base font-semibold text-foreground">Email Service Provider</h3>
@@ -253,7 +272,10 @@ function Content(props: ProjectPageProps) {
           </div>
 
           {useCustomProjectProvider ? (
-            <div className="flex flex-col gap-4 pt-1">
+            <div
+              className="flex flex-col gap-4 pt-1"
+              style={{ display: "flex", flexDirection: "column", gap: "16px", paddingTop: "4px" }}
+            >
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-foreground">
                   Provider
@@ -337,11 +359,11 @@ function Content(props: ProjectPageProps) {
           )}
         </div>
 
-        <div className="flex justify-end pt-1">
+        <div className="flex justify-end pt-1" style={{ display: "flex", justifyContent: "flex-end", paddingTop: "6px" }}>
           <button
             type="submit"
             disabled={updateSettingsMutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
           >
             <Save className="h-4 w-4" />
             {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
@@ -350,12 +372,15 @@ function Content(props: ProjectPageProps) {
       </form>
 
       {/* Test Email Section */}
-      <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-        <div className="mb-4 flex items-center gap-2">
-          <Send className="h-4 w-4 text-primary" />
+      <div
+        className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs"
+        style={{ marginBottom: "8px" }}
+      >
+        <div className="mb-4 flex items-center gap-2" style={{ marginBottom: "12px" }}>
+          <Send className="h-5 w-5 text-primary" />
           <h3 className="text-base font-semibold text-foreground">Send Test Email</h3>
         </div>
-        <p className="mb-4 text-xs sm:text-sm text-muted-foreground">
+        <p className="mb-4 text-xs sm:text-sm text-muted-foreground" style={{ marginBottom: "14px" }}>
           Verify email delivery by sending a diagnostic test message using the configured provider.
         </p>
         <form onSubmit={handleSendTest} className="flex flex-col gap-3 sm:flex-row">
@@ -369,7 +394,7 @@ function Content(props: ProjectPageProps) {
           <button
             type="submit"
             disabled={sendTestMutation.isPending || !testRecipient}
-            className="flex items-center justify-center gap-2 rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 cursor-pointer"
           >
             {sendTestMutation.isPending ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -387,6 +412,7 @@ function Content(props: ProjectPageProps) {
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                 : "border-destructive/30 bg-destructive/10 text-destructive dark:text-red-400"
             }`}
+            style={{ marginTop: "14px" }}
           >
             {testResult.success ? (
               <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -400,12 +426,12 @@ function Content(props: ProjectPageProps) {
 
       {/* Audit Log Table */}
       <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between" style={{ marginBottom: "12px" }}>
           <h3 className="text-base font-semibold text-foreground">Delivery Audit Log</h3>
           <button
             type="button"
             onClick={() => refetchLogs()}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
             Refresh
@@ -413,7 +439,7 @@ function Content(props: ProjectPageProps) {
         </div>
 
         {logs.length === 0 ? (
-          <p className="py-6 text-center text-xs text-muted-foreground">
+          <p className="py-6 text-center text-xs text-muted-foreground" style={{ padding: "24px 0" }}>
             No emails have been dispatched for this project yet.
           </p>
         ) : (
@@ -421,17 +447,17 @@ function Content(props: ProjectPageProps) {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-border/40 text-muted-foreground">
-                  <th className="py-2.5 font-medium">Status</th>
-                  <th className="py-2.5 font-medium">Recipient</th>
-                  <th className="py-2.5 font-medium">Subject</th>
-                  <th className="py-2.5 font-medium">Type</th>
-                  <th className="py-2.5 font-medium">Time</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Status</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Recipient</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Subject</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Type</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-muted/30">
-                    <td className="py-2.5">
+                    <td className="py-2.5" style={{ padding: "10px 8px" }}>
                       {log.status === "sent" ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 font-medium">
                           <CheckCircle2 className="h-3 w-3" /> sent
@@ -449,10 +475,10 @@ function Content(props: ProjectPageProps) {
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 font-mono text-foreground">{log.recipient_email}</td>
-                    <td className="py-2.5 max-w-xs truncate text-foreground">{log.subject}</td>
-                    <td className="py-2.5 text-muted-foreground">{log.notification_type}</td>
-                    <td className="py-2.5 text-muted-foreground">
+                    <td className="py-2.5 font-mono text-foreground" style={{ padding: "10px 8px" }}>{log.recipient_email}</td>
+                    <td className="py-2.5 max-w-xs truncate text-foreground" style={{ padding: "10px 8px" }}>{log.subject}</td>
+                    <td className="py-2.5 text-muted-foreground" style={{ padding: "10px 8px" }}>{log.notification_type}</td>
+                    <td className="py-2.5 text-muted-foreground" style={{ padding: "10px 8px" }}>
                       {new Date(log.created_at).toLocaleString()}
                     </td>
                   </tr>

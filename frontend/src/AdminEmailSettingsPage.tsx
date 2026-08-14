@@ -190,9 +190,15 @@ function Content(props: AdminPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl flex flex-col gap-8 p-6 sm:p-8">
+    <div
+      className="mx-auto max-w-5xl flex flex-col gap-6 p-6 sm:p-8"
+      style={{ display: "flex", flexDirection: "column", gap: "28px" }}
+    >
       {/* Header */}
-      <div className="flex flex-col gap-1.5 border-b border-border/40 pb-5">
+      <div
+        className="flex flex-col gap-1.5 border-b border-border/40 pb-5"
+        style={{ marginBottom: "4px" }}
+      >
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Mail className="h-5 w-5" />
@@ -216,7 +222,10 @@ function Content(props: AdminPageProps) {
       )}
 
       {/* Info Banner */}
-      <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5 text-xs sm:text-sm text-foreground">
+      <div
+        className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5 text-xs sm:text-sm text-foreground"
+        style={{ marginBottom: "8px" }}
+      >
         <Info className="h-5 w-5 shrink-0 text-primary mt-0.5" />
         <div className="space-y-2 leading-relaxed">
           <div className="font-semibold text-foreground text-sm">How recipient email routing works:</div>
@@ -229,15 +238,22 @@ function Content(props: AdminPageProps) {
       </div>
 
       {/* Settings Form */}
-      <form onSubmit={handleSave} className="flex flex-col gap-6">
+      <form
+        onSubmit={handleSave}
+        className="flex flex-col gap-6"
+        style={{ display: "flex", flexDirection: "column", gap: "24px", marginBottom: "8px" }}
+      >
         {/* Provider Configuration */}
         <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-          <div className="mb-5 flex items-center gap-2">
+          <div className="mb-5 flex items-center gap-2" style={{ marginBottom: "16px" }}>
             <ShieldCheck className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-semibold text-foreground">Global Email Provider</h2>
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div
+            className="flex flex-col gap-4"
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+          >
             <div>
               <label className="mb-1.5 block text-xs font-medium text-foreground">
                 Provider Type
@@ -318,11 +334,14 @@ function Content(props: AdminPageProps) {
 
         {/* Global Notification Triggers */}
         <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-          <div className="mb-5 flex items-center gap-2">
+          <div className="mb-5 flex items-center gap-2" style={{ marginBottom: "16px" }}>
             <Bell className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-semibold text-foreground">Default Notification Triggers</h2>
           </div>
-          <div className="flex flex-col gap-3.5">
+          <div
+            className="flex flex-col gap-3.5"
+            style={{ display: "flex", flexDirection: "column", gap: "14px" }}
+          >
             <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
@@ -353,11 +372,11 @@ function Content(props: AdminPageProps) {
           </div>
         </div>
 
-        <div className="flex justify-end pt-1">
+        <div className="flex justify-end pt-1" style={{ display: "flex", justifyContent: "flex-end", paddingTop: "6px" }}>
           <button
             type="submit"
             disabled={updateSettingsMutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
           >
             <Save className="h-4 w-4" />
             {updateSettingsMutation.isPending ? "Saving..." : "Save Global Settings"}
@@ -366,12 +385,15 @@ function Content(props: AdminPageProps) {
       </form>
 
       {/* Test Email Section */}
-      <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-        <div className="mb-4 flex items-center gap-2">
+      <div
+        className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs"
+        style={{ marginBottom: "8px" }}
+      >
+        <div className="mb-4 flex items-center gap-2" style={{ marginBottom: "12px" }}>
           <Send className="h-5 w-5 text-primary" />
           <h2 className="text-base sm:text-lg font-semibold text-foreground">Send Test Email</h2>
         </div>
-        <p className="mb-4 text-xs sm:text-sm text-muted-foreground">
+        <p className="mb-4 text-xs sm:text-sm text-muted-foreground" style={{ marginBottom: "14px" }}>
           Send a diagnostic test email to verify credentials and endpoint reachability.
         </p>
         <form onSubmit={handleSendTest} className="flex flex-col gap-3 sm:flex-row">
@@ -385,7 +407,7 @@ function Content(props: AdminPageProps) {
           <button
             type="submit"
             disabled={sendTestMutation.isPending || !testRecipient}
-            className="flex items-center justify-center gap-2 rounded-md bg-secondary px-5 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-md bg-secondary px-5 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 cursor-pointer"
           >
             {sendTestMutation.isPending ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -403,6 +425,7 @@ function Content(props: AdminPageProps) {
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                 : "border-destructive/30 bg-destructive/10 text-destructive dark:text-red-400"
             }`}
+            style={{ marginTop: "14px" }}
           >
             {testResult.success ? (
               <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -415,8 +438,11 @@ function Content(props: AdminPageProps) {
       </div>
 
       {/* User Email Overrides Section */}
-      <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-        <div className="mb-4 flex items-center justify-between">
+      <div
+        className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs"
+        style={{ marginBottom: "8px" }}
+      >
+        <div className="mb-4 flex items-center justify-between" style={{ marginBottom: "12px" }}>
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-semibold text-foreground">User Email Overrides</h2>
@@ -424,24 +450,31 @@ function Content(props: AdminPageProps) {
           <button
             type="button"
             onClick={() => refetchOverrides()}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingOverrides ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
 
-        <p className="mb-4 text-xs sm:text-sm text-muted-foreground">
+        <p className="mb-4 text-xs sm:text-sm text-muted-foreground" style={{ marginBottom: "14px" }}>
           Map specific user IDs (for accounts whose login username is not an email) to their destination email addresses.
         </p>
 
         {overrideError && (
-          <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive dark:text-red-400">
+          <div
+            className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive dark:text-red-400"
+            style={{ marginBottom: "14px" }}
+          >
             {overrideError}
           </div>
         )}
 
-        <form onSubmit={handleAddOverride} className="mb-6 flex flex-col gap-3 sm:flex-row">
+        <form
+          onSubmit={handleAddOverride}
+          className="mb-6 flex flex-col gap-3 sm:flex-row"
+          style={{ marginBottom: "20px" }}
+        >
           <input
             type="text"
             value={newUserId}
@@ -459,7 +492,7 @@ function Content(props: AdminPageProps) {
           <button
             type="submit"
             disabled={saveOverrideMutation.isPending}
-            className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             Add Override
@@ -467,7 +500,7 @@ function Content(props: AdminPageProps) {
         </form>
 
         {overrides.length === 0 ? (
-          <p className="py-4 text-center text-xs text-muted-foreground">
+          <p className="py-4 text-center text-xs text-muted-foreground" style={{ padding: "16px 0" }}>
             No user email overrides configured. All users with email usernames receive notifications directly.
           </p>
         ) : (
@@ -475,25 +508,25 @@ function Content(props: AdminPageProps) {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-border/40 text-muted-foreground">
-                  <th className="py-2.5 font-medium">User ID</th>
-                  <th className="py-2.5 font-medium">Destination Email</th>
-                  <th className="py-2.5 font-medium">Updated</th>
-                  <th className="py-2.5 text-right font-medium">Actions</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>User ID</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Destination Email</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Updated</th>
+                  <th className="py-2.5 text-right font-medium" style={{ padding: "10px 8px" }}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">
                 {overrides.map((ov) => (
                   <tr key={ov.user_id} className="hover:bg-muted/30">
-                    <td className="py-2.5 font-mono text-foreground">{ov.user_id}</td>
-                    <td className="py-2.5 font-mono text-primary">{ov.email}</td>
-                    <td className="py-2.5 text-muted-foreground">
+                    <td className="py-2.5 font-mono text-foreground" style={{ padding: "10px 8px" }}>{ov.user_id}</td>
+                    <td className="py-2.5 font-mono text-primary" style={{ padding: "10px 8px" }}>{ov.email}</td>
+                    <td className="py-2.5 text-muted-foreground" style={{ padding: "10px 8px" }}>
                       {new Date(ov.updated_at).toLocaleString()}
                     </td>
-                    <td className="py-2.5 text-right">
+                    <td className="py-2.5 text-right" style={{ padding: "10px 8px" }}>
                       <button
                         type="button"
                         onClick={() => handleDeleteOverride(ov.user_id)}
-                        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
                         title="Delete override"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -509,12 +542,12 @@ function Content(props: AdminPageProps) {
 
       {/* Global Delivery Audit Log */}
       <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between" style={{ marginBottom: "12px" }}>
           <h2 className="text-base sm:text-lg font-semibold text-foreground">Global Delivery Audit Log</h2>
           <button
             type="button"
             onClick={() => refetchLogs()}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
             Refresh
@@ -522,7 +555,7 @@ function Content(props: AdminPageProps) {
         </div>
 
         {logs.length === 0 ? (
-          <p className="py-6 text-center text-xs text-muted-foreground">
+          <p className="py-6 text-center text-xs text-muted-foreground" style={{ padding: "24px 0" }}>
             No email logs recorded yet.
           </p>
         ) : (
@@ -530,18 +563,18 @@ function Content(props: AdminPageProps) {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-border/40 text-muted-foreground">
-                  <th className="py-2.5 font-medium">Status</th>
-                  <th className="py-2.5 font-medium">Recipient</th>
-                  <th className="py-2.5 font-medium">Subject</th>
-                  <th className="py-2.5 font-medium">Type</th>
-                  <th className="py-2.5 font-medium">Project</th>
-                  <th className="py-2.5 font-medium">Time</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Status</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Recipient</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Subject</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Type</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Project</th>
+                  <th className="py-2.5 font-medium" style={{ padding: "10px 8px" }}>Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-muted/30">
-                    <td className="py-2.5">
+                    <td className="py-2.5" style={{ padding: "10px 8px" }}>
                       {log.status === "sent" ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 font-medium">
                           <CheckCircle2 className="h-3 w-3" /> sent
@@ -559,13 +592,13 @@ function Content(props: AdminPageProps) {
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 font-mono text-foreground">{log.recipient_email}</td>
-                    <td className="py-2.5 max-w-xs truncate text-foreground">{log.subject}</td>
-                    <td className="py-2.5 text-muted-foreground">{log.notification_type}</td>
-                    <td className="py-2.5 font-mono text-muted-foreground">
+                    <td className="py-2.5 font-mono text-foreground" style={{ padding: "10px 8px" }}>{log.recipient_email}</td>
+                    <td className="py-2.5 max-w-xs truncate text-foreground" style={{ padding: "10px 8px" }}>{log.subject}</td>
+                    <td className="py-2.5 text-muted-foreground" style={{ padding: "10px 8px" }}>{log.notification_type}</td>
+                    <td className="py-2.5 font-mono text-muted-foreground" style={{ padding: "10px 8px" }}>
                       {log.project_id ? log.project_id.slice(0, 8) : "—"}
                     </td>
-                    <td className="py-2.5 text-muted-foreground">
+                    <td className="py-2.5 text-muted-foreground" style={{ padding: "10px 8px" }}>
                       {new Date(log.created_at).toLocaleString()}
                     </td>
                   </tr>
