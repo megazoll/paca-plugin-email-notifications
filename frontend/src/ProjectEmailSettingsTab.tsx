@@ -318,7 +318,7 @@ function Content(props: ProjectPageProps) {
                   onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
                   placeholder={
                     formData.provider === "yandex_postbox"
-                      ? "IAM Token (X-YaCloud-SubjectToken)"
+                      ? "Static Key (KeyID:SecretKey) or IAM Token"
                       : "API Key (Bearer token)"
                   }
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"

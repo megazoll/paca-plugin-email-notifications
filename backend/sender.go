@@ -1,10 +1,15 @@
 package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
+	"time"
 )
 
 // OutboundEmail encapsulates content to be delivered.
@@ -107,11 +112,35 @@ func sendYandexPostbox(settings *SMTPSettings, email OutboundEmail, from, fromNa
 
 	apiKey := strings.TrimSpace(settings.APIKey)
 	if apiKey != "" {
-		if strings.HasPrefix(apiKey, "t1.") || strings.HasPrefix(apiKey, "AQVN") || !strings.Contains(apiKey, " ") {
+		// Check if provided as Static Access Key pair: KeyID:SecretKey or KeyID\nSecretKey or KeyID SecretKey
+		var accessKey, secretKey string
+		if strings.Contains(apiKey, ":") {
+			parts := strings.SplitN(apiKey, ":", 2)
+			accessKey = strings.TrimSpace(parts[0])
+			secretKey = strings.TrimSpace(parts[1])
+		} else if strings.Contains(apiKey, "\n") {
+			parts := strings.SplitN(apiKey, "\n", 2)
+			accessKey = strings.TrimSpace(parts[0])
+			secretKey = strings.TrimSpace(parts[1])
+		} else if strings.Contains(apiKey, " ") && !strings.HasPrefix(apiKey, "Bearer ") && !strings.HasPrefix(apiKey, "AWS4-") {
+			parts := strings.SplitN(apiKey, " ", 2)
+			accessKey = strings.TrimSpace(parts[0])
+			secretKey = strings.TrimSpace(parts[1])
+		}
+
+		if accessKey != "" && secretKey != "" {
+			authHeader, amzDate, err := signAWSSigV4(endpoint, bodyBytes, accessKey, secretKey, "ru-central1", "ses", time.Now().UTC())
+			if err == nil {
+				headers["X-Amz-Date"] = amzDate
+				headers["Authorization"] = authHeader
+			}
+		} else if strings.HasPrefix(apiKey, "t1.") || strings.HasPrefix(apiKey, "AQVN") {
 			headers["X-YaCloud-SubjectToken"] = apiKey
 			headers["Authorization"] = "Bearer " + apiKey
-		} else {
+		} else if strings.HasPrefix(apiKey, "Bearer ") || strings.HasPrefix(apiKey, "AWS4-") {
 			headers["Authorization"] = apiKey
+		} else {
+			headers["Authorization"] = "Bearer " + apiKey
 		}
 	}
 
@@ -125,6 +154,51 @@ func sendYandexPostbox(settings *SMTPSettings, email OutboundEmail, from, fromNa
 		return fmt.Errorf("yandex postbox api: %w", err)
 	}
 	return nil
+}
+
+func signAWSSigV4(reqURL string, bodyBytes []byte, accessKey, secretKey, region, service string, t time.Time) (string, string, error) {
+	u, err := url.Parse(reqURL)
+	if err != nil {
+		return "", "", err
+	}
+
+	host := u.Host
+	path := u.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+
+	amzDate := t.UTC().Format("20060102T150405Z")
+	dateStamp := t.UTC().Format("20060102")
+
+	payloadSum := sha256.Sum256(bodyBytes)
+	payloadHash := hex.EncodeToString(payloadSum[:])
+
+	canonicalHeaders := fmt.Sprintf("content-type:application/json\nhost:%s\nx-amz-date:%s\n", host, amzDate)
+	signedHeaders := "content-type;host;x-amz-date"
+
+	canonicalRequest := fmt.Sprintf("POST\n%s\n\n%s\n%s\n%s", path, canonicalHeaders, signedHeaders, payloadHash)
+	reqSum := sha256.Sum256([]byte(canonicalRequest))
+	reqHash := hex.EncodeToString(reqSum[:])
+
+	credentialScope := fmt.Sprintf("%s/%s/%s/aws4_request", dateStamp, region, service)
+	stringToSign := fmt.Sprintf("AWS4-HMAC-SHA256\n%s\n%s\n%s", amzDate, credentialScope, reqHash)
+
+	kDate := hmacSHA256([]byte("AWS4"+secretKey), []byte(dateStamp))
+	kRegion := hmacSHA256(kDate, []byte(region))
+	kService := hmacSHA256(kRegion, []byte(service))
+	kSigning := hmacSHA256(kService, []byte("aws4_request"))
+
+	signature := hex.EncodeToString(hmacSHA256(kSigning, []byte(stringToSign)))
+	authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s", accessKey, credentialScope, signedHeaders, signature)
+
+	return authHeader, amzDate, nil
+}
+
+func hmacSHA256(key, data []byte) []byte {
+	h := hmac.New(sha256.New, key)
+	h.Write(data)
+	return h.Sum(nil)
 }
 
 func sendResend(settings *SMTPSettings, email OutboundEmail, from, fromName string) error {

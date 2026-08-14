@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	plugin "github.com/Paca-AI/plugin-sdk-go"
 	"github.com/Paca-AI/plugin-sdk-go/plugintest"
@@ -310,4 +311,27 @@ func TestOverridesRoutes(t *testing.T) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func TestAWSSigV4(t *testing.T) {
+	testURL := "https://postbox.cloud.yandex.net/v2/email/outbound-emails"
+	body := []byte(`{"FromEmailAddress":"test@mbmd.ru"}`)
+	fixedTime := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+
+	authHeader, amzDate, err := signAWSSigV4(testURL, body, "KEY123", "SECRET456", "ru-central1", "ses", fixedTime)
+	if err != nil {
+		t.Fatalf("signAWSSigV4 failed: %v", err)
+	}
+
+	if amzDate != "20260814T120000Z" {
+		t.Errorf("expected amzDate 20260814T120000Z, got %s", amzDate)
+	}
+
+	if !strings.HasPrefix(authHeader, "AWS4-HMAC-SHA256 Credential=KEY123/20260814/ru-central1/ses/aws4_request") {
+		t.Errorf("unexpected auth header: %s", authHeader)
+	}
+
+	if !strings.Contains(authHeader, "SignedHeaders=content-type;host;x-amz-date") {
+		t.Errorf("missing signed headers in: %s", authHeader)
+	}
 }
