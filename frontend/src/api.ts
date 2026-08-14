@@ -4,6 +4,7 @@ import { PLUGIN_ID } from "./constants";
 import type {
   EmailLog,
   SMTPSettings,
+  TestEmailInput,
   UpdateSettingsInput,
   UserEmailOverride,
 } from "./types";
@@ -29,7 +30,7 @@ export function useProjectEmailSettings(api: PluginApiClient, projectId?: string
     queryKey: [PLUGIN_ID, "settings", "project", pid],
     queryFn: () =>
       unwrapData<SMTPSettings>(
-        api.get(`/projects/${pid}/email-notifications/settings`),
+        api.pluginGet(PLUGIN_ID, `/projects/${pid}/email-notifications/settings`),
       ),
     enabled: Boolean(pid),
   });
@@ -41,7 +42,7 @@ export function useUpdateProjectEmailSettings(api: PluginApiClient, projectId?: 
   return useMutation({
     mutationFn: (input: UpdateSettingsInput) =>
       unwrapData<SMTPSettings>(
-        api.patch(`/projects/${pid}/email-notifications/settings`, input),
+        api.pluginPatch(PLUGIN_ID, `/projects/${pid}/email-notifications/settings`, input),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -57,7 +58,7 @@ export function useProjectEmailLogs(api: PluginApiClient, projectId?: string) {
     queryKey: [PLUGIN_ID, "logs", "project", pid],
     queryFn: () =>
       unwrapData<EmailLog[]>(
-        api.get(`/projects/${pid}/email-notifications/logs`),
+        api.pluginGet(PLUGIN_ID, `/projects/${pid}/email-notifications/logs`),
       ),
     enabled: Boolean(pid),
     refetchInterval: 10000,
@@ -68,9 +69,9 @@ export function useSendProjectTestEmail(api: PluginApiClient, projectId?: string
   const queryClient = useQueryClient();
   const pid = projectId || api.projectId;
   return useMutation({
-    mutationFn: (toEmail: string) =>
+    mutationFn: (input: TestEmailInput) =>
       unwrapData<{ sent: boolean; recipient: string }>(
-        api.post(`/projects/${pid}/email-notifications/test`, { to_email: toEmail }),
+        api.pluginPost(PLUGIN_ID, `/projects/${pid}/email-notifications/test`, input),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -87,7 +88,7 @@ export function useAdminEmailSettings(api: PluginApiClient) {
     queryKey: [PLUGIN_ID, "settings", "admin"],
     queryFn: () =>
       unwrapData<SMTPSettings>(
-        api.get("/email-notifications/admin-settings"),
+        api.pluginGet(PLUGIN_ID, "/admin/email-notifications/settings"),
       ),
   });
 }
@@ -97,7 +98,7 @@ export function useUpdateAdminEmailSettings(api: PluginApiClient) {
   return useMutation({
     mutationFn: (input: UpdateSettingsInput) =>
       unwrapData<SMTPSettings>(
-        api.patch("/email-notifications/admin-settings", input),
+        api.pluginPatch(PLUGIN_ID, "/admin/email-notifications/settings", input),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -112,7 +113,7 @@ export function useAdminEmailLogs(api: PluginApiClient) {
     queryKey: [PLUGIN_ID, "logs", "admin"],
     queryFn: () =>
       unwrapData<EmailLog[]>(
-        api.get("/email-notifications/admin-logs"),
+        api.pluginGet(PLUGIN_ID, "/admin/email-notifications/logs"),
       ),
     refetchInterval: 10000,
   });
@@ -121,9 +122,9 @@ export function useAdminEmailLogs(api: PluginApiClient) {
 export function useSendAdminTestEmail(api: PluginApiClient) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (toEmail: string) =>
+    mutationFn: (input: TestEmailInput) =>
       unwrapData<{ sent: boolean; recipient: string }>(
-        api.post("/email-notifications/admin-test", { to_email: toEmail }),
+        api.pluginPost(PLUGIN_ID, "/admin/email-notifications/test", input),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -138,7 +139,7 @@ export function useAdminEmailOverrides(api: PluginApiClient) {
     queryKey: [PLUGIN_ID, "overrides"],
     queryFn: () =>
       unwrapData<UserEmailOverride[]>(
-        api.get("/email-notifications/admin-overrides"),
+        api.pluginGet(PLUGIN_ID, "/admin/email-notifications/overrides"),
       ),
   });
 }
@@ -148,7 +149,7 @@ export function useSaveAdminEmailOverride(api: PluginApiClient) {
   return useMutation({
     mutationFn: ({ userId, email }: { userId: string; email: string }) =>
       unwrapData<{ saved: boolean; user_id: string; email: string }>(
-        api.post("/email-notifications/admin-overrides", { user_id: userId, email }),
+        api.pluginPost(PLUGIN_ID, `/admin/email-notifications/overrides/${userId}`, { user_id: userId, email }),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -163,7 +164,7 @@ export function useDeleteAdminEmailOverride(api: PluginApiClient) {
   return useMutation({
     mutationFn: (userId: string) =>
       unwrapData<{ deleted: boolean; user_id: string }>(
-        api.delete(`/email-notifications/admin-overrides/${userId}`),
+        api.pluginDelete(PLUGIN_ID, `/admin/email-notifications/overrides/${userId}`),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({

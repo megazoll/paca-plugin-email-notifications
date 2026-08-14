@@ -8,10 +8,9 @@ import {
   RefreshCw,
   Send,
   Save,
-  Server,
   Bell,
-  AlertTriangle,
   Info,
+  ShieldCheck,
 } from "lucide-react";
 import {
   useProjectEmailSettings,
@@ -19,7 +18,7 @@ import {
   useProjectEmailLogs,
   useSendProjectTestEmail,
 } from "./api";
-import type { UpdateSettingsInput } from "./types";
+import type { EmailProviderType, UpdateSettingsInput } from "./types";
 
 export default function ProjectEmailSettingsTab(props: ProjectPageProps) {
   return (
@@ -41,19 +40,17 @@ function Content(props: ProjectPageProps) {
   const sendTestMutation = useSendProjectTestEmail(api, projectId);
 
   const [formData, setFormData] = useState<UpdateSettingsInput>({
-    enabled: true,
-    host: "",
-    port: 587,
-    username: "",
-    password: "",
+    provider: "yandex_postbox",
+    endpoint: "https://postbox.cloud.yandex.net/v2/email/outbound-emails",
+    api_key: "",
     from_email: "",
-    from_name: "",
-    security: "starttls",
+    from_name: "PACA Notifications",
     notify_on_assigned: true,
     notify_on_mentioned: true,
+    notify_on_update: false,
   });
 
-  const [useCustomSMTP, setUseCustomSMTP] = useState(false);
+  const [useCustomProjectProvider, setUseCustomProjectProvider] = useState(false);
   const [testRecipient, setTestRecipient] = useState("");
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -61,67 +58,94 @@ function Content(props: ProjectPageProps) {
   useEffect(() => {
     if (settings) {
       setFormData({
-        enabled: settings.enabled,
-        host: settings.host || "",
-        port: settings.port || 587,
-        username: settings.username || "",
-        password: settings.password || "",
+        provider: settings.provider || "yandex_postbox",
+        endpoint: settings.endpoint || "https://postbox.cloud.yandex.net/v2/email/outbound-emails",
+        api_key: settings.api_key || "",
         from_email: settings.from_email || "",
-        from_name: settings.from_name || "",
-        security: settings.security || "starttls",
+        from_name: settings.from_name || "PACA Notifications",
         notify_on_assigned: settings.notify_on_assigned,
         notify_on_mentioned: settings.notify_on_mentioned,
+        notify_on_update: settings.notify_on_update,
       });
-      setUseCustomSMTP(Boolean(settings.host && settings.host.trim().length > 0));
+      setUseCustomProjectProvider(Boolean(settings.api_key && settings.api_key.trim().length > 0));
     }
   }, [settings]);
+
+  const handleProviderChange = (newProvider: EmailProviderType) => {
+    let defaultEndpoint = formData.endpoint;
+    if (newProvider === "yandex_postbox") {
+      defaultEndpoint = "https://postbox.cloud.yandex.net/v2/email/outbound-emails";
+    } else if (newProvider === "resend") {
+      defaultEndpoint = "https://api.resend.com/emails";
+    } else if (newProvider === "sendgrid") {
+      defaultEndpoint = "https://api.sendgrid.com/v3/mail/send";
+    } else if (newProvider === "postmark") {
+      defaultEndpoint = "https://api.postmarkapp.com/email";
+    } else if (newProvider === "brevo") {
+      defaultEndpoint = "https://api.brevo.com/v3/smtp/email";
+    }
+    setFormData({
+      ...formData,
+      provider: newProvider,
+      endpoint: defaultEndpoint,
+    });
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveSuccessMessage(null);
     try {
       const payload: UpdateSettingsInput = {
-        enabled: formData.enabled,
         notify_on_assigned: formData.notify_on_assigned,
         notify_on_mentioned: formData.notify_on_mentioned,
+        notify_on_update: formData.notify_on_update,
       };
 
-      if (useCustomSMTP) {
-        payload.host = formData.host;
-        payload.port = Number(formData.port) || 587;
-        payload.username = formData.username;
-        payload.password = formData.password;
+      if (useCustomProjectProvider) {
+        payload.provider = formData.provider;
+        payload.endpoint = formData.endpoint;
+        payload.api_key = formData.api_key;
         payload.from_email = formData.from_email;
         payload.from_name = formData.from_name;
-        payload.security = formData.security;
       } else {
-        payload.host = "";
-        payload.username = "";
-        payload.password = "";
+        payload.api_key = "";
       }
 
       await updateSettingsMutation.mutateAsync(payload);
-      setSaveSuccessMessage("Settings saved successfully.");
+      setSaveSuccessMessage("Settings saved successfully!");
+      refetchSettings();
       setTimeout(() => setSaveSuccessMessage(null), 4000);
     } catch (err: any) {
-      console.error("Failed to save project email settings:", err);
+      alert("Failed to save settings: " + (err.message || String(err)));
     }
   };
 
   const handleSendTest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testRecipient.trim()) return;
+    if (!testRecipient || !testRecipient.includes("@")) {
+      setTestResult({ success: false, message: "Please enter a valid email address." });
+      return;
+    }
+
     setTestResult(null);
     try {
-      await sendTestMutation.mutateAsync(testRecipient.trim());
+      await sendTestMutation.mutateAsync({
+        to_email: testRecipient,
+        provider: useCustomProjectProvider ? formData.provider : undefined,
+        endpoint: useCustomProjectProvider ? formData.endpoint : undefined,
+        api_key: useCustomProjectProvider ? formData.api_key : undefined,
+        from_email: useCustomProjectProvider ? formData.from_email : undefined,
+        from_name: useCustomProjectProvider ? formData.from_name : undefined,
+      });
       setTestResult({
         success: true,
-        message: `Test email sent successfully to ${testRecipient.trim()}.`,
+        message: `Test email successfully dispatched to ${testRecipient}!`,
       });
+      refetchLogs();
     } catch (err: any) {
       setTestResult({
         success: false,
-        message: err?.message || "Failed to send test email. Check SMTP settings.",
+        message: `Delivery failed: ${err.message || String(err)}`,
       });
     }
   };
@@ -135,9 +159,9 @@ function Content(props: ProjectPageProps) {
   }
 
   return (
-    <div className="max-w-4xl space-y-8 p-6">
+    <div className="mx-auto max-w-4xl space-y-8 p-6">
       {/* Header */}
-      <div>
+      <div className="border-b border-border/40 pb-5">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Mail className="h-5 w-5" />
@@ -147,239 +171,202 @@ function Content(props: ProjectPageProps) {
               Email Notifications
             </h2>
             <p className="text-sm text-muted-foreground">
-              Automatically duplicate task and mention notifications to project members via email.
+              Automatically duplicates Paca notifications to user email addresses via Yandex Cloud Postbox, Resend, SendGrid, or Webhooks.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Info notice about username as email */}
-      <div className="flex items-start gap-3 rounded-lg border border-border bg-card/60 p-4 text-sm text-foreground">
-        <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+      {saveSuccessMessage && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>{saveSuccessMessage}</span>
+        </div>
+      )}
+
+      {/* Info Callout */}
+      <div className="flex gap-3 rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
+        <Info className="h-5 w-5 shrink-0 text-primary" />
         <div>
-          <span className="font-medium">How email routing works:</span> Paca sends notifications to each user's <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">username</code> if it is a valid email address (e.g. <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">alice@company.com</code>). If a user's username is not an email, notifications will be skipped unless an admin configures an override for that user.
+          <span className="font-medium text-foreground">Username Email Policy: </span>
+          When an in-app notification is triggered, Paca inspects the recipient's username. If it is a valid email address (e.g. <code className="text-xs bg-muted px-1 py-0.5 rounded">alice@company.com</code>) or has an admin override, an email is dispatched. Non-email usernames are skipped safely.
         </div>
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Section 1: General Notification Triggers */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        {/* Notification Triggers */}
+        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            <h3 className="text-base font-semibold text-foreground">Notification Preferences</h3>
+            <Bell className="h-4 w-4 text-primary" />
+            <h3 className="text-base font-semibold text-foreground">Notification Triggers</h3>
           </div>
-
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 cursor-pointer">
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 text-sm cursor-pointer">
               <input
                 type="checkbox"
-                checked={formData.enabled}
-                onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                checked={formData.notify_on_assigned}
+                onChange={(e) => setFormData({ ...formData, notify_on_assigned: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
               />
-              <div>
-                <span className="font-medium text-foreground">Enable email notifications for this project</span>
-                <p className="text-xs text-muted-foreground">
-                  Master switch for sending email duplicates in this project.
-                </p>
-              </div>
+              <span className="text-foreground">Notify when a task is assigned to the user</span>
             </label>
-
-            <div className="ml-7 space-y-3 pt-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  disabled={!formData.enabled}
-                  checked={formData.notify_on_assigned}
-                  onChange={(e) => setFormData({ ...formData, notify_on_assigned: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
-                />
-                <span className="text-sm text-foreground">
-                  Notify assignee when a task is assigned
-                </span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  disabled={!formData.enabled}
-                  checked={formData.notify_on_mentioned}
-                  onChange={(e) => setFormData({ ...formData, notify_on_mentioned: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
-                />
-                <span className="text-sm text-foreground">
-                  Notify member when @mentioned in a task comment or description
-                </span>
-              </label>
-            </div>
+            <label className="flex items-center gap-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.notify_on_mentioned}
+                onChange={(e) => setFormData({ ...formData, notify_on_mentioned: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
+              />
+              <span className="text-foreground">Notify when the user is @-mentioned in task comments</span>
+            </label>
+            <label className="flex items-center gap-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.notify_on_update}
+                onChange={(e) => setFormData({ ...formData, notify_on_update: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
+              />
+              <span className="text-foreground">Notify on task status and priority updates</span>
+            </label>
           </div>
         </div>
 
-        {/* Section 2: SMTP Delivery */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Server className="h-5 w-5 text-primary" />
-            <h3 className="text-base font-semibold text-foreground">SMTP Server Configuration</h3>
-          </div>
-
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 cursor-pointer">
+        {/* Project Custom Provider */}
+        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <h3 className="text-base font-semibold text-foreground">Email Service Provider</h3>
+            </div>
+            <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
-                checked={useCustomSMTP}
-                onChange={(e) => setUseCustomSMTP(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                checked={useCustomProjectProvider}
+                onChange={(e) => setUseCustomProjectProvider(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
               />
-              <div>
-                <span className="font-medium text-foreground">Use custom SMTP server for this project</span>
-                <p className="text-xs text-muted-foreground">
-                  If disabled, emails will be routed through the global SMTP server configured by administrators.
-                </p>
-              </div>
+              <span>Use custom credentials for this project</span>
             </label>
+          </div>
 
-            {useCustomSMTP ? (
-              <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-foreground">SMTP Host</label>
-                  <input
-                    type="text"
-                    required={useCustomSMTP}
-                    placeholder="smtp.example.com"
-                    value={formData.host || ""}
-                    onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
+          {useCustomProjectProvider ? (
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                  Provider
+                </label>
+                <select
+                  value={formData.provider}
+                  onChange={(e) => handleProviderChange(e.target.value as EmailProviderType)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                >
+                  <option value="yandex_postbox">⭐️ Yandex Cloud Postbox (AWS SES REST API)</option>
+                  <option value="resend">Resend</option>
+                  <option value="sendgrid">SendGrid</option>
+                  <option value="mailgun">Mailgun</option>
+                  <option value="postmark">Postmark</option>
+                  <option value="brevo">Brevo (Sendinblue)</option>
+                  <option value="webhook">Custom Webhook / HTTP-to-SMTP Relay</option>
+                </select>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-foreground">Port</label>
-                  <input
-                    type="number"
-                    placeholder="587"
-                    value={formData.port || 587}
-                    onChange={(e) => setFormData({ ...formData, port: Number(e.target.value) })}
-                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                  API Endpoint URL
+                </label>
+                <input
+                  type="text"
+                  value={formData.endpoint || ""}
+                  onChange={(e) => setFormData({ ...formData, endpoint: e.target.value })}
+                  placeholder="https://postbox.cloud.yandex.net/v2/email/outbound-emails"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none font-mono text-xs"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-foreground">Security Mode</label>
-                  <select
-                    value={formData.security || "starttls"}
-                    onChange={(e) => setFormData({ ...formData, security: e.target.value as any })}
-                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="starttls">STARTTLS (Port 587 recommended)</option>
-                    <option value="tls">TLS / SSL (Port 465 recommended)</option>
-                    <option value="none">None (Plain SMTP, Port 25)</option>
-                  </select>
-                </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                  API Key / IAM Token
+                </label>
+                <input
+                  type="password"
+                  value={formData.api_key || ""}
+                  onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+                  placeholder={
+                    formData.provider === "yandex_postbox"
+                      ? "IAM Token (X-YaCloud-SubjectToken)"
+                      : "API Key (Bearer token)"
+                  }
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                />
+              </div>
 
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-medium text-foreground">SMTP Username</label>
-                  <input
-                    type="text"
-                    placeholder="smtp-user@example.com"
-                    value={formData.username || ""}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-foreground">SMTP Password</label>
-                  <input
-                    type="password"
-                    placeholder="••••••••••••"
-                    value={formData.password || ""}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-foreground">From Email</label>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">
+                    Sender Email Address
+                  </label>
                   <input
                     type="email"
-                    placeholder="notifications@myproject.org"
                     value={formData.from_email || ""}
                     onChange={(e) => setFormData({ ...formData, from_email: e.target.value })}
-                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="notifications@yourdomain.com"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                   />
                 </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-foreground">From Name</label>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">
+                    Sender Name
+                  </label>
                   <input
                     type="text"
-                    placeholder="Project Notifications"
                     value={formData.from_name || ""}
                     onChange={(e) => setFormData({ ...formData, from_name: e.target.value })}
-                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="PACA Notifications"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
-            ) : (
-              <div className="rounded-lg bg-muted/40 p-4 text-xs text-muted-foreground">
-                Using global server settings. Emails will be sent from the administrator-configured mail gateway.
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              This project inherits global instance email configuration configured by the administrator in Admin Settings.
+            </p>
+          )}
         </div>
 
-        {/* Save Button & Feedback */}
-        <div className="flex items-center gap-4">
+        <div className="flex justify-end">
           <button
             type="submit"
             disabled={updateSettingsMutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition hover:bg-primary/90 disabled:opacity-50"
           >
-            {updateSettingsMutation.isPending ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Save Settings
+            <Save className="h-4 w-4" />
+            {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
           </button>
-
-          {saveSuccessMessage && (
-            <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
-              <CheckCircle2 className="h-4 w-4" /> {saveSuccessMessage}
-            </span>
-          )}
-
-          {updateSettingsMutation.isError && (
-            <span className="flex items-center gap-1.5 text-sm font-medium text-destructive">
-              <XCircle className="h-4 w-4" /> Failed to save settings.
-            </span>
-          )}
         </div>
       </form>
 
-      {/* Section 3: Test Email */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="mb-3 flex items-center gap-2">
-          <Send className="h-5 w-5 text-primary" />
+      {/* Test Email Section */}
+      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <Send className="h-4 w-4 text-primary" />
           <h3 className="text-base font-semibold text-foreground">Send Test Email</h3>
         </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          Send a sample test email to verify your project SMTP connectivity and delivery.
+        <p className="mb-4 text-xs text-muted-foreground">
+          Verify email delivery by sending a diagnostic test message using the configured provider.
         </p>
-
         <form onSubmit={handleSendTest} className="flex flex-col gap-3 sm:flex-row">
           <input
             type="email"
-            required
-            placeholder="recipient@example.com"
             value={testRecipient}
             onChange={(e) => setTestRecipient(e.target.value)}
-            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="recipient@example.com"
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
           />
           <button
             type="submit"
-            disabled={sendTestMutation.isPending || !testRecipient.trim()}
-            className="flex items-center justify-center gap-2 rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground shadow-sm hover:bg-secondary/80 disabled:opacity-50"
+            disabled={sendTestMutation.isPending || !testRecipient}
+            className="flex items-center justify-center gap-2 rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
           >
             {sendTestMutation.isPending ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -392,31 +379,30 @@ function Content(props: ProjectPageProps) {
 
         {testResult && (
           <div
-            className={`mt-4 flex items-start gap-2 rounded-lg p-3 text-sm ${
+            className={`mt-4 flex items-start gap-2 rounded-lg border p-3 text-xs ${
               testResult.success
-                ? "bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300"
-                : "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "border-destructive/30 bg-destructive/10 text-destructive dark:text-red-400"
             }`}
           >
             {testResult.success ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
             ) : (
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+              <XCircle className="h-4 w-4 shrink-0" />
             )}
             <span>{testResult.message}</span>
           </div>
         )}
       </div>
 
-      {/* Section 4: Email Delivery Logs */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+      {/* Audit Log Table */}
+      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-foreground">Recent Email Logs</h3>
-          </div>
+          <h3 className="text-base font-semibold text-foreground">Delivery Audit Log</h3>
           <button
+            type="button"
             onClick={() => refetchLogs()}
-            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
             Refresh
@@ -424,49 +410,47 @@ function Content(props: ProjectPageProps) {
         </div>
 
         {logs.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            No email notifications recorded for this project yet.
-          </div>
+          <p className="py-6 text-center text-xs text-muted-foreground">
+            No emails have been dispatched for this project yet.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Time</th>
-                  <th className="px-3 py-2 font-medium">Type</th>
-                  <th className="px-3 py-2 font-medium">Recipient</th>
-                  <th className="px-3 py-2 font-medium">Subject</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
+              <thead>
+                <tr className="border-b border-border/40 text-muted-foreground">
+                  <th className="py-2 font-medium">Status</th>
+                  <th className="py-2 font-medium">Recipient</th>
+                  <th className="py-2 font-medium">Subject</th>
+                  <th className="py-2 font-medium">Type</th>
+                  <th className="py-2 font-medium">Time</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/20">
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-muted/30">
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
-                      {new Date(log.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                        {log.notification_type}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 font-medium text-foreground">{log.recipient_email}</td>
-                    <td className="max-w-xs truncate px-3 py-2.5 text-foreground" title={log.subject}>
-                      {log.subject}
-                    </td>
-                    <td className="px-3 py-2.5">
+                    <td className="py-2.5">
                       {log.status === "sent" ? (
-                        <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Sent
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                          <CheckCircle2 className="h-3 w-3" /> sent
+                        </span>
+                      ) : log.status === "skipped" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-muted-foreground font-medium">
+                          skipped
                         </span>
                       ) : (
                         <span
-                          className="inline-flex items-center gap-1 text-destructive"
+                          className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-destructive dark:text-red-400 font-medium"
                           title={log.error_message || "Failed"}
                         >
-                          <XCircle className="h-3.5 w-3.5" /> Failed
+                          <XCircle className="h-3 w-3" /> failed
                         </span>
                       )}
+                    </td>
+                    <td className="py-2.5 font-mono text-foreground">{log.recipient_email}</td>
+                    <td className="py-2.5 max-w-xs truncate text-foreground">{log.subject}</td>
+                    <td className="py-2.5 text-muted-foreground">{log.notification_type}</td>
+                    <td className="py-2.5 text-muted-foreground">
+                      {new Date(log.created_at).toLocaleString()}
                     </td>
                   </tr>
                 ))}

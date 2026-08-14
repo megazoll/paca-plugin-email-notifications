@@ -1,43 +1,37 @@
 CREATE TABLE IF NOT EXISTS smtp_settings (
-    id UUID PRIMARY KEY,
-    scope TEXT NOT NULL DEFAULT 'global',
-    project_id UUID,
-    enabled BOOLEAN NOT NULL DEFAULT true,
-    host TEXT NOT NULL DEFAULT '',
-    port INT NOT NULL DEFAULT 587,
-    username TEXT NOT NULL DEFAULT '',
-    password TEXT NOT NULL DEFAULT '',
-    from_email TEXT NOT NULL DEFAULT 'notifications@paca.local',
-    from_name TEXT NOT NULL DEFAULT 'Paca',
-    security TEXT NOT NULL DEFAULT 'starttls',
-    webhook_url TEXT NOT NULL DEFAULT '',
-    webhook_api_key TEXT NOT NULL DEFAULT '',
-    notify_on_assigned BOOLEAN NOT NULL DEFAULT true,
-    notify_on_mentioned BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id VARCHAR(64) PRIMARY KEY,
+    project_id VARCHAR(64),
+    provider VARCHAR(32) NOT NULL DEFAULT 'yandex_postbox',
+    endpoint VARCHAR(512) NOT NULL DEFAULT 'https://postbox.cloud.yandex.net/v2/email/outbound-emails',
+    api_key TEXT NOT NULL DEFAULT '',
+    from_email VARCHAR(255) NOT NULL,
+    from_name VARCHAR(255) NOT NULL DEFAULT 'PACA Notifications',
+    notify_on_assign BOOLEAN NOT NULL DEFAULT true,
+    notify_on_mention BOOLEAN NOT NULL DEFAULT true,
+    notify_on_update BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS email_logs (
-    id UUID PRIMARY KEY,
-    project_id UUID,
-    notification_id UUID,
-    recipient_user_id UUID,
-    recipient_email TEXT NOT NULL,
-    notification_type TEXT NOT NULL,
-    subject TEXT NOT NULL,
-    body_text TEXT NOT NULL,
-    status TEXT NOT NULL,
+    id VARCHAR(64) PRIMARY KEY,
+    project_id VARCHAR(64),
+    recipient_user_id VARCHAR(64) NOT NULL,
+    recipient_email VARCHAR(255) NOT NULL,
+    notification_type VARCHAR(64) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    status VARCHAR(32) NOT NULL, -- 'sent', 'failed', 'skipped'
     error_message TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_email_logs_project_id ON email_logs(project_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_email_logs_recipient ON email_logs(recipient_email, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS user_email_overrides (
-    user_id UUID PRIMARY KEY,
-    email TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    user_id VARCHAR(64) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_smtp_settings_project_id ON smtp_settings(project_id);
+CREATE INDEX IF NOT EXISTS idx_email_logs_project_id ON email_logs(project_id);
+CREATE INDEX IF NOT EXISTS idx_email_logs_created_at ON email_logs(created_at DESC);

@@ -4,53 +4,54 @@ import (
 	"time"
 )
 
+type EmailProviderType string
+
+const (
+	ProviderYandexPostbox EmailProviderType = "yandex_postbox"
+	ProviderResend        EmailProviderType = "resend"
+	ProviderSendGrid      EmailProviderType = "sendgrid"
+	ProviderMailgun       EmailProviderType = "mailgun"
+	ProviderPostmark      EmailProviderType = "postmark"
+	ProviderBrevo         EmailProviderType = "brevo"
+	ProviderWebhook       EmailProviderType = "webhook"
+)
+
 // SMTPSettings holds configuration for email delivery.
 type SMTPSettings struct {
-	ID                string `json:"id"`
-	Scope             string `json:"scope"` // "global" or "project"
-	ProjectID         string `json:"project_id,omitempty"`
-	Enabled           bool   `json:"enabled"`
-	Host              string `json:"host"`
-	Port              int    `json:"port"`
-	Username          string `json:"username"`
-	Password          string `json:"password,omitempty"` // Omitted in some responses or masked
-	FromEmail         string `json:"from_email"`
-	FromName          string `json:"from_name"`
-	Security          string `json:"security"` // "tls", "starttls", "none"
-	WebhookURL        string `json:"webhook_url"`
-	WebhookAPIKey     string `json:"webhook_api_key,omitempty"`
-	NotifyOnAssigned  bool   `json:"notify_on_assigned"`
-	NotifyOnMentioned bool   `json:"notify_on_mentioned"`
-	CreatedAt         string `json:"created_at"`
-	UpdatedAt         string `json:"updated_at"`
+	ID                string            `json:"id"`
+	ProjectID         string            `json:"project_id,omitempty"`
+	Provider          EmailProviderType `json:"provider"`
+	Endpoint          string            `json:"endpoint"`
+	APIKey            string            `json:"api_key,omitempty"`
+	FromEmail         string            `json:"from_email"`
+	FromName          string            `json:"from_name"`
+	NotifyOnAssigned  bool              `json:"notify_on_assigned"`
+	NotifyOnMentioned bool              `json:"notify_on_mentioned"`
+	NotifyOnUpdate    bool              `json:"notify_on_update"`
+	CreatedAt         string            `json:"created_at"`
+	UpdatedAt         string            `json:"updated_at"`
 }
 
-// UpdateSettingsInput carries update fields for SMTP settings.
+// UpdateSettingsInput carries update fields for settings.
 type UpdateSettingsInput struct {
-	Enabled           *bool   `json:"enabled"`
-	Host              *string `json:"host"`
-	Port              *int    `json:"port"`
-	Username          *string `json:"username"`
-	Password          *string `json:"password"`
-	FromEmail         *string `json:"from_email"`
-	FromName          *string `json:"from_name"`
-	Security          *string `json:"security"`
-	WebhookURL        *string `json:"webhook_url"`
-	WebhookAPIKey     *string `json:"webhook_api_key"`
-	NotifyOnAssigned  *bool   `json:"notify_on_assigned"`
-	NotifyOnMentioned *bool   `json:"notify_on_mentioned"`
+	Provider          *EmailProviderType `json:"provider"`
+	Endpoint          *string            `json:"endpoint"`
+	APIKey            *string            `json:"api_key"`
+	FromEmail         *string            `json:"from_email"`
+	FromName          *string            `json:"from_name"`
+	NotifyOnAssigned  *bool              `json:"notify_on_assigned"`
+	NotifyOnMentioned *bool              `json:"notify_on_mentioned"`
+	NotifyOnUpdate    *bool              `json:"notify_on_update"`
 }
 
 // EmailLog records every processed notification email attempt.
 type EmailLog struct {
 	ID               string `json:"id"`
 	ProjectID        string `json:"project_id,omitempty"`
-	NotificationID   string `json:"notification_id,omitempty"`
 	RecipientUserID  string `json:"recipient_user_id"`
 	RecipientEmail   string `json:"recipient_email"`
 	NotificationType string `json:"notification_type"`
 	Subject          string `json:"subject"`
-	BodyText         string `json:"body_text"`
 	Status           string `json:"status"` // "sent", "failed", "skipped"
 	ErrorMessage     string `json:"error_message,omitempty"`
 	CreatedAt        string `json:"created_at"`
@@ -72,9 +73,14 @@ type SaveOverrideInput struct {
 
 // TestEmailInput carries test email dispatch parameters.
 type TestEmailInput struct {
-	ToEmail string `json:"to_email"`
-	Subject string `json:"subject,omitempty"`
-	Message string `json:"message,omitempty"`
+	ToEmail   string             `json:"to_email"`
+	Provider  *EmailProviderType `json:"provider,omitempty"`
+	Endpoint  *string            `json:"endpoint,omitempty"`
+	APIKey    *string            `json:"api_key,omitempty"`
+	FromEmail *string            `json:"from_email,omitempty"`
+	FromName  *string            `json:"from_name,omitempty"`
+	Subject   string             `json:"subject,omitempty"`
+	Message   string             `json:"message,omitempty"`
 }
 
 // NotificationEventPayload is the data shape of the notification.created event.
@@ -86,27 +92,6 @@ type NotificationEventPayload struct {
 	TaskID          string `json:"task_id,omitempty"`
 	ProjectID       string `json:"project_id,omitempty"`
 	CreatedAt       string `json:"created_at"`
-}
-
-// SMTPHostPayload is the payload passed to the host's paca.smtp_send bridge.
-type SMTPHostPayload struct {
-	Host     string   `json:"host"`
-	Port     int      `json:"port"`
-	Username string   `json:"username"`
-	Password string   `json:"password"`
-	From     string   `json:"from"`
-	FromName string   `json:"from_name"`
-	To       []string `json:"to"`
-	Subject  string   `json:"subject"`
-	BodyText string   `json:"body_text"`
-	BodyHTML string   `json:"body_html"`
-	Security string   `json:"security"`
-}
-
-// SMTPHostResult is the result returned by paca.smtp_send bridge.
-type SMTPHostResult struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
 }
 
 func nowStr() string {

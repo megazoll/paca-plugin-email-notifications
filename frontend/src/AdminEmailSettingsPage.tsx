@@ -8,13 +8,12 @@ import {
   RefreshCw,
   Send,
   Save,
-  Server,
   Bell,
-  AlertTriangle,
   Info,
   Users,
   Plus,
   Trash2,
+  ShieldCheck,
 } from "lucide-react";
 import {
   useAdminEmailSettings,
@@ -25,7 +24,7 @@ import {
   useSaveAdminEmailOverride,
   useDeleteAdminEmailOverride,
 } from "./api";
-import type { UpdateSettingsInput } from "./types";
+import type { EmailProviderType, UpdateSettingsInput } from "./types";
 
 export default function AdminEmailSettingsPage(props: AdminPageProps) {
   return (
@@ -50,16 +49,14 @@ function Content(props: AdminPageProps) {
   const deleteOverrideMutation = useDeleteAdminEmailOverride(api);
 
   const [formData, setFormData] = useState<UpdateSettingsInput>({
-    enabled: true,
-    host: "",
-    port: 587,
-    username: "",
-    password: "",
-    from_email: "notifications@paca.local",
-    from_name: "Paca",
-    security: "starttls",
+    provider: "yandex_postbox",
+    endpoint: "https://postbox.cloud.yandex.net/v2/email/outbound-emails",
+    api_key: "",
+    from_email: "notifications@yourdomain.com",
+    from_name: "PACA Notifications",
     notify_on_assigned: true,
     notify_on_mentioned: true,
+    notify_on_update: false,
   });
 
   const [testRecipient, setTestRecipient] = useState("");
@@ -74,46 +71,77 @@ function Content(props: AdminPageProps) {
   useEffect(() => {
     if (settings) {
       setFormData({
-        enabled: settings.enabled,
-        host: settings.host || "",
-        port: settings.port || 587,
-        username: settings.username || "",
-        password: settings.password || "",
-        from_email: settings.from_email || "notifications@paca.local",
-        from_name: settings.from_name || "Paca",
-        security: settings.security || "starttls",
+        provider: settings.provider || "yandex_postbox",
+        endpoint: settings.endpoint || "https://postbox.cloud.yandex.net/v2/email/outbound-emails",
+        api_key: settings.api_key || "",
+        from_email: settings.from_email || "notifications@yourdomain.com",
+        from_name: settings.from_name || "PACA Notifications",
         notify_on_assigned: settings.notify_on_assigned,
         notify_on_mentioned: settings.notify_on_mentioned,
+        notify_on_update: settings.notify_on_update,
       });
     }
   }, [settings]);
+
+  const handleProviderChange = (newProvider: EmailProviderType) => {
+    let defaultEndpoint = formData.endpoint;
+    if (newProvider === "yandex_postbox") {
+      defaultEndpoint = "https://postbox.cloud.yandex.net/v2/email/outbound-emails";
+    } else if (newProvider === "resend") {
+      defaultEndpoint = "https://api.resend.com/emails";
+    } else if (newProvider === "sendgrid") {
+      defaultEndpoint = "https://api.sendgrid.com/v3/mail/send";
+    } else if (newProvider === "postmark") {
+      defaultEndpoint = "https://api.postmarkapp.com/email";
+    } else if (newProvider === "brevo") {
+      defaultEndpoint = "https://api.brevo.com/v3/smtp/email";
+    }
+    setFormData({
+      ...formData,
+      provider: newProvider,
+      endpoint: defaultEndpoint,
+    });
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveSuccessMessage(null);
     try {
       await updateSettingsMutation.mutateAsync(formData);
-      setSaveSuccessMessage("Global SMTP configuration saved successfully.");
+      setSaveSuccessMessage("Global email configuration saved successfully.");
+      refetchSettings();
       setTimeout(() => setSaveSuccessMessage(null), 4000);
     } catch (err: any) {
-      console.error("Failed to save admin settings:", err);
+      alert("Failed to save settings: " + (err.message || String(err)));
     }
   };
 
   const handleSendTest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testRecipient.trim()) return;
+    if (!testRecipient || !testRecipient.includes("@")) {
+      setTestResult({ success: false, message: "Please enter a valid email address." });
+      return;
+    }
+
     setTestResult(null);
     try {
-      await sendTestMutation.mutateAsync(testRecipient.trim());
+      await sendTestMutation.mutateAsync({
+        to_email: testRecipient,
+        provider: formData.provider,
+        endpoint: formData.endpoint,
+        api_key: formData.api_key,
+        from_email: formData.from_email,
+        from_name: formData.from_name,
+      });
       setTestResult({
         success: true,
-        message: `Global test email successfully dispatched to ${testRecipient.trim()}.`,
+        message: `Test email successfully dispatched to ${testRecipient}!`,
       });
+      refetchLogs();
     } catch (err: any) {
       setTestResult({
         success: false,
-        message: err?.message || "Failed to send test email. Verify SMTP host, port, credentials, and security.",
+        message: `Delivery failed: ${err.message || String(err)}`,
       });
     }
   };
@@ -121,7 +149,15 @@ function Content(props: AdminPageProps) {
   const handleAddOverride = async (e: React.FormEvent) => {
     e.preventDefault();
     setOverrideError(null);
-    if (!newUserId.trim() || !newUserEmail.trim()) return;
+    if (!newUserId.trim() || !newUserEmail.trim()) {
+      setOverrideError("User ID and email address are required.");
+      return;
+    }
+    if (!newUserEmail.includes("@")) {
+      setOverrideError("Please enter a valid email address.");
+      return;
+    }
+
     try {
       await saveOverrideMutation.mutateAsync({
         userId: newUserId.trim(),
@@ -129,16 +165,19 @@ function Content(props: AdminPageProps) {
       });
       setNewUserId("");
       setNewUserEmail("");
+      refetchOverrides();
     } catch (err: any) {
-      setOverrideError(err?.message || "Failed to add email override.");
+      setOverrideError(err.message || "Failed to save override");
     }
   };
 
   const handleDeleteOverride = async (userId: string) => {
+    if (!confirm(`Delete email override for user ${userId}?`)) return;
     try {
       await deleteOverrideMutation.mutateAsync(userId);
+      refetchOverrides();
     } catch (err: any) {
-      console.error("Failed to delete override:", err);
+      alert("Failed to delete override: " + err.message);
     }
   };
 
@@ -151,218 +190,201 @@ function Content(props: AdminPageProps) {
   }
 
   return (
-    <div className="max-w-5xl space-y-8 p-8">
-      {/* Page Title */}
-      <div className="flex items-center gap-3 border-b border-border pb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Mail className="h-6 w-6" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Email Notifications & SMTP Gateway
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Configure system-wide SMTP mail routing, user email overrides, and audit notification delivery logs.
-          </p>
-        </div>
-      </div>
-
-      {/* Info Card */}
-      <div className="flex items-start gap-3.5 rounded-xl border border-border bg-card/70 p-5 text-sm text-foreground shadow-sm">
-        <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
-        <div>
-          <div className="font-semibold text-foreground mb-1">Username as Email Policy</div>
-          <p className="text-muted-foreground leading-relaxed">
-            Paca automatically checks if a user's <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">username</code> is a valid email address (e.g., <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">user@organization.com</code>). If it is, notifications are sent directly to that address. If a user has a plain handle (e.g., <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">admin</code>), you can define a mapping in the <strong>User Email Overrides</strong> section below.
-          </p>
+    <div className="mx-auto max-w-5xl space-y-8 p-8">
+      {/* Header */}
+      <div className="border-b border-border/40 pb-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Mail className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Email Notifications Settings
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Configure global outbound email delivery for Paca notifications (task assignments, mentions, updates).
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Section 1: Global SMTP Server Configuration */}
+      {saveSuccessMessage && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>{saveSuccessMessage}</span>
+        </div>
+      )}
+
+      {/* Info Banner */}
+      <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-foreground">
+        <Info className="h-5 w-5 shrink-0 text-primary" />
+        <div className="space-y-1">
+          <div className="font-semibold">How recipient email routing works:</div>
+          <div className="text-xs text-muted-foreground leading-relaxed">
+            1. <strong>Direct Email Usernames:</strong> If a user's login username is an email address (e.g. <code>alice@company.com</code>), notifications are sent directly to that address.<br />
+            2. <strong>User Email Overrides:</strong> If a user has a text login (e.g. <code>admin</code>, <code>john</code>), you can map their User ID to an email in the table below.<br />
+            3. <strong>Safe Skipping:</strong> Users without a valid email username or override will not receive email notifications.
+          </div>
+        </div>
+      </div>
+
       <form onSubmit={handleSave} className="space-y-6">
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Server className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-semibold text-foreground">Global SMTP Server</h2>
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.enabled}
-                onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-              <span className="text-sm font-medium text-foreground">Enable Email Delivery</span>
-            </label>
+        {/* Provider Configuration */}
+        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Global Email Provider</h2>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
+          <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-foreground">SMTP Host / Server</label>
-              <input
-                type="text"
-                required
-                placeholder="smtp.mailgun.org, smtp.sendgrid.net, etc."
-                value={formData.host || ""}
-                onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-foreground">Port</label>
-              <input
-                type="number"
-                required
-                placeholder="587"
-                value={formData.port || 587}
-                onChange={(e) => setFormData({ ...formData, port: Number(e.target.value) })}
-                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-foreground">Security Mode</label>
+              <label className="mb-1.5 block text-xs font-medium text-foreground">
+                Provider Type
+              </label>
               <select
-                value={formData.security || "starttls"}
-                onChange={(e) => setFormData({ ...formData, security: e.target.value as any })}
-                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                value={formData.provider}
+                onChange={(e) => handleProviderChange(e.target.value as EmailProviderType)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
               >
-                <option value="starttls">STARTTLS (Port 587 recommended)</option>
-                <option value="tls">TLS / SSL (Port 465 recommended)</option>
-                <option value="none">Plain SMTP (Port 25)</option>
+                <option value="yandex_postbox">⭐️ Yandex Cloud Postbox (AWS SES REST API)</option>
+                <option value="resend">Resend</option>
+                <option value="sendgrid">SendGrid</option>
+                <option value="mailgun">Mailgun</option>
+                <option value="postmark">Postmark</option>
+                <option value="brevo">Brevo (Sendinblue)</option>
+                <option value="webhook">Custom Webhook / HTTP-to-SMTP Relay</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-foreground">SMTP Username / API User</label>
+              <label className="mb-1.5 block text-xs font-medium text-foreground">
+                API Endpoint URL
+              </label>
               <input
                 type="text"
-                placeholder="postmaster@yourdomain.com"
-                value={formData.username || ""}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                value={formData.endpoint || ""}
+                onChange={(e) => setFormData({ ...formData, endpoint: e.target.value })}
+                placeholder="https://postbox.cloud.yandex.net/v2/email/outbound-emails"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none font-mono text-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-foreground">SMTP Password / API Key</label>
+              <label className="mb-1.5 block text-xs font-medium text-foreground">
+                API Key / IAM Token
+              </label>
               <input
                 type="password"
-                placeholder="••••••••••••••••"
-                value={formData.password || ""}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                value={formData.api_key || ""}
+                onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+                placeholder={
+                  formData.provider === "yandex_postbox"
+                    ? "IAM Token (X-YaCloud-SubjectToken)"
+                    : "API Key (Bearer token)"
+                }
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-foreground">Default Sender Email (From)</label>
-              <input
-                type="email"
-                required
-                placeholder="notifications@paca.local"
-                value={formData.from_email || ""}
-                onChange={(e) => setFormData({ ...formData, from_email: e.target.value })}
-                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-foreground">Default Sender Name</label>
-              <input
-                type="text"
-                placeholder="Paca Notifications"
-                value={formData.from_name || ""}
-                onChange={(e) => setFormData({ ...formData, from_name: e.target.value })}
-                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          <div className="mt-6 border-t border-border pt-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Default Notification Triggers
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="flex items-center gap-2.5 cursor-pointer">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                  Default Sender Email (From)
+                </label>
                 <input
-                  type="checkbox"
-                  checked={formData.notify_on_assigned}
-                  onChange={(e) => setFormData({ ...formData, notify_on_assigned: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  type="email"
+                  value={formData.from_email || ""}
+                  onChange={(e) => setFormData({ ...formData, from_email: e.target.value })}
+                  placeholder="no-reply@yourdomain.com"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                 />
-                <span className="text-sm text-foreground">Notify assignee when assigned to a task</span>
-              </label>
-
-              <label className="flex items-center gap-2.5 cursor-pointer">
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                  Sender Display Name
+                </label>
                 <input
-                  type="checkbox"
-                  checked={formData.notify_on_mentioned}
-                  onChange={(e) => setFormData({ ...formData, notify_on_mentioned: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  type="text"
+                  value={formData.from_name || ""}
+                  onChange={(e) => setFormData({ ...formData, from_name: e.target.value })}
+                  placeholder="PACA Notifications"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                 />
-                <span className="text-sm text-foreground">Notify member when mentioned in comment / task</span>
-              </label>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Global Notification Triggers */}
+        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Default Notification Triggers</h2>
+          </div>
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.notify_on_assigned}
+                onChange={(e) => setFormData({ ...formData, notify_on_assigned: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
+              />
+              <span className="text-foreground">Notify when a task is assigned to a user</span>
+            </label>
+            <label className="flex items-center gap-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.notify_on_mentioned}
+                onChange={(e) => setFormData({ ...formData, notify_on_mentioned: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
+              />
+              <span className="text-foreground">Notify when a user is @-mentioned in comments</span>
+            </label>
+            <label className="flex items-center gap-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.notify_on_update}
+                onChange={(e) => setFormData({ ...formData, notify_on_update: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
+              />
+              <span className="text-foreground">Notify on task status updates</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
           <button
             type="submit"
             disabled={updateSettingsMutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow transition hover:bg-primary/90 disabled:opacity-50"
           >
-            {updateSettingsMutation.isPending ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Save Global Settings
+            <Save className="h-4 w-4" />
+            {updateSettingsMutation.isPending ? "Saving..." : "Save Global Settings"}
           </button>
-
-          {saveSuccessMessage && (
-            <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
-              <CheckCircle2 className="h-4 w-4" /> {saveSuccessMessage}
-            </span>
-          )}
-
-          {updateSettingsMutation.isError && (
-            <span className="flex items-center gap-1.5 text-sm font-medium text-destructive">
-              <XCircle className="h-4 w-4" /> Failed to save settings.
-            </span>
-          )}
         </div>
       </form>
 
-      {/* Section 2: Global Test Email */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="mb-2 flex items-center gap-2">
+      {/* Test Email Section */}
+      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
           <Send className="h-5 w-5 text-primary" />
-          <h2 className="text-base font-semibold text-foreground">Test Mail Delivery</h2>
+          <h2 className="text-lg font-semibold text-foreground">Send Test Email</h2>
         </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          Verify outbound SMTP server connectivity and TLS handshake by sending a test message.
+        <p className="mb-4 text-xs text-muted-foreground">
+          Send a diagnostic test email to verify credentials and endpoint reachability.
         </p>
-
         <form onSubmit={handleSendTest} className="flex flex-col gap-3 sm:flex-row">
           <input
             type="email"
-            required
-            placeholder="admin@yourcompany.com"
             value={testRecipient}
             onChange={(e) => setTestRecipient(e.target.value)}
-            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="recipient@example.com"
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
           />
           <button
             type="submit"
-            disabled={sendTestMutation.isPending || !testRecipient.trim()}
-            className="flex items-center justify-center gap-2 rounded-md bg-secondary px-5 py-2 text-sm font-medium text-secondary-foreground shadow-sm hover:bg-secondary/80 disabled:opacity-50"
+            disabled={sendTestMutation.isPending || !testRecipient}
+            className="flex items-center justify-center gap-2 rounded-md bg-secondary px-5 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
           >
             {sendTestMutation.isPending ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -375,107 +397,101 @@ function Content(props: AdminPageProps) {
 
         {testResult && (
           <div
-            className={`mt-4 flex items-start gap-2 rounded-lg p-3 text-sm ${
+            className={`mt-4 flex items-start gap-2 rounded-lg border p-3 text-xs ${
               testResult.success
-                ? "bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300"
-                : "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "border-destructive/30 bg-destructive/10 text-destructive dark:text-red-400"
             }`}
           >
             {testResult.success ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
             ) : (
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+              <XCircle className="h-4 w-4 shrink-0" />
             )}
             <span>{testResult.message}</span>
           </div>
         )}
       </div>
 
-      {/* Section 3: User Email Overrides */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="mb-2 flex items-center justify-between">
+      {/* User Email Overrides Section */}
+      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
-            <h2 className="text-base font-semibold text-foreground">User Email Overrides</h2>
+            <h2 className="text-lg font-semibold text-foreground">User Email Overrides</h2>
           </div>
           <button
+            type="button"
             onClick={() => refetchOverrides()}
-            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingOverrides ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          Override or assign an explicit email address for users whose system username is not an email.
+
+        <p className="mb-4 text-xs text-muted-foreground">
+          Map specific user IDs (for accounts whose login username is not an email) to their destination email addresses.
         </p>
 
-        {/* Add Override Form */}
-        <form onSubmit={handleAddOverride} className="mb-6 flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-foreground">User ID</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. 0192e2fb-..."
-              value={newUserId}
-              onChange={(e) => setNewUserId(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-foreground">Email Address</label>
-            <input
-              type="email"
-              required
-              placeholder="user@example.com"
-              value={newUserEmail}
-              onChange={(e) => setNewUserEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={saveOverrideMutation.isPending || !newUserId.trim() || !newUserEmail.trim()}
-            className="flex items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" /> Add Mapping
-          </button>
-        </form>
-
         {overrideError && (
-          <div className="mb-4 text-xs font-medium text-destructive">
+          <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive dark:text-red-400">
             {overrideError}
           </div>
         )}
 
+        <form onSubmit={handleAddOverride} className="mb-6 flex flex-col gap-3 sm:flex-row">
+          <input
+            type="text"
+            value={newUserId}
+            onChange={(e) => setNewUserId(e.target.value)}
+            placeholder="User UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none font-mono text-xs"
+          />
+          <input
+            type="email"
+            value={newUserEmail}
+            onChange={(e) => setNewUserEmail(e.target.value)}
+            placeholder="target@company.com"
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={saveOverrideMutation.isPending}
+            className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+            Add Override
+          </button>
+        </form>
+
         {overrides.length === 0 ? (
-          <div className="py-6 text-center text-xs text-muted-foreground">
-            No email overrides configured. All users with valid email usernames will receive notifications directly.
-          </div>
+          <p className="py-4 text-center text-xs text-muted-foreground">
+            No user email overrides configured. All users with email usernames receive notifications directly.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">User ID</th>
-                  <th className="px-3 py-2 font-medium">Mapped Email</th>
-                  <th className="px-3 py-2 font-medium">Updated At</th>
-                  <th className="px-3 py-2 font-medium text-right">Actions</th>
+              <thead>
+                <tr className="border-b border-border/40 text-muted-foreground">
+                  <th className="py-2 font-medium">User ID</th>
+                  <th className="py-2 font-medium">Destination Email</th>
+                  <th className="py-2 font-medium">Updated</th>
+                  <th className="py-2 text-right font-medium">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/20">
                 {overrides.map((ov) => (
                   <tr key={ov.user_id} className="hover:bg-muted/30">
-                    <td className="px-3 py-2.5 font-mono text-foreground">{ov.user_id}</td>
-                    <td className="px-3 py-2.5 font-medium text-primary">{ov.email}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">
+                    <td className="py-2.5 font-mono text-foreground">{ov.user_id}</td>
+                    <td className="py-2.5 font-mono text-primary">{ov.email}</td>
+                    <td className="py-2.5 text-muted-foreground">
                       {new Date(ov.updated_at).toLocaleString()}
                     </td>
-                    <td className="px-3 py-2.5 text-right">
+                    <td className="py-2.5 text-right">
                       <button
+                        type="button"
                         onClick={() => handleDeleteOverride(ov.user_id)}
-                        disabled={deleteOverrideMutation.isPending}
                         className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         title="Delete override"
                       >
@@ -490,16 +506,14 @@ function Content(props: AdminPageProps) {
         )}
       </div>
 
-      {/* Section 4: System Audit Logs */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+      {/* Global Delivery Audit Log */}
+      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-foreground">Global Email Delivery Logs</h2>
-            <p className="text-xs text-muted-foreground">Recent 100 outbound notification emails across all projects.</p>
-          </div>
+          <h2 className="text-lg font-semibold text-foreground">Global Delivery Audit Log</h2>
           <button
+            type="button"
             onClick={() => refetchLogs()}
-            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
             Refresh
@@ -507,53 +521,51 @@ function Content(props: AdminPageProps) {
         </div>
 
         {logs.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            No outbound emails recorded yet.
-          </div>
+          <p className="py-6 text-center text-xs text-muted-foreground">
+            No email logs recorded yet.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Time</th>
-                  <th className="px-3 py-2 font-medium">Project ID</th>
-                  <th className="px-3 py-2 font-medium">Type</th>
-                  <th className="px-3 py-2 font-medium">Recipient</th>
-                  <th className="px-3 py-2 font-medium">Subject</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
+              <thead>
+                <tr className="border-b border-border/40 text-muted-foreground">
+                  <th className="py-2 font-medium">Status</th>
+                  <th className="py-2 font-medium">Recipient</th>
+                  <th className="py-2 font-medium">Subject</th>
+                  <th className="py-2 font-medium">Type</th>
+                  <th className="py-2 font-medium">Project</th>
+                  <th className="py-2 font-medium">Time</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/20">
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-muted/30">
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
-                      {new Date(log.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-muted-foreground">
-                      {log.project_id || "Global"}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                        {log.notification_type}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 font-medium text-foreground">{log.recipient_email}</td>
-                    <td className="max-w-xs truncate px-3 py-2.5 text-foreground" title={log.subject}>
-                      {log.subject}
-                    </td>
-                    <td className="px-3 py-2.5">
+                    <td className="py-2.5">
                       {log.status === "sent" ? (
-                        <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Sent
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                          <CheckCircle2 className="h-3 w-3" /> sent
+                        </span>
+                      ) : log.status === "skipped" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-muted-foreground font-medium">
+                          skipped
                         </span>
                       ) : (
                         <span
-                          className="inline-flex items-center gap-1 text-destructive"
+                          className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-destructive dark:text-red-400 font-medium"
                           title={log.error_message || "Failed"}
                         >
-                          <XCircle className="h-3.5 w-3.5" /> Failed
+                          <XCircle className="h-3 w-3" /> failed
                         </span>
                       )}
+                    </td>
+                    <td className="py-2.5 font-mono text-foreground">{log.recipient_email}</td>
+                    <td className="py-2.5 max-w-xs truncate text-foreground">{log.subject}</td>
+                    <td className="py-2.5 text-muted-foreground">{log.notification_type}</td>
+                    <td className="py-2.5 font-mono text-muted-foreground">
+                      {log.project_id ? log.project_id.slice(0, 8) : "—"}
+                    </td>
+                    <td className="py-2.5 text-muted-foreground">
+                      {new Date(log.created_at).toLocaleString()}
                     </td>
                   </tr>
                 ))}

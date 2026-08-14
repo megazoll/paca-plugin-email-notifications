@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	plugin "github.com/Paca-AI/plugin-sdk-go"
 )
@@ -63,6 +64,10 @@ func (s rowScanner) intVal(col string, def int) int {
 		return int(i64)
 	}
 	return def
+}
+
+func timeNowNano() int64 {
+	return time.Now().UnixNano()
 }
 
 func ok(res *plugin.Response, data any) {
@@ -169,7 +174,7 @@ func (p *emailPlugin) testProjectEmail(req *plugin.Request, res *plugin.Response
 	}
 
 	settings, err := p.loadSettings("project", projectID)
-	if err != nil || !settings.Enabled || settings.Host == "" {
+	if err != nil || settings.APIKey == "" {
 		// Fallback to global settings
 		settings, err = p.loadSettings("global", "")
 	}
@@ -178,8 +183,31 @@ func (p *emailPlugin) testProjectEmail(req *plugin.Request, res *plugin.Response
 		return
 	}
 
+	if input.Provider != nil {
+		settings.Provider = *input.Provider
+	}
+	if input.Endpoint != nil {
+		settings.Endpoint = *input.Endpoint
+	}
+	if input.APIKey != nil {
+		settings.APIKey = *input.APIKey
+	}
+	if input.FromEmail != nil {
+		settings.FromEmail = *input.FromEmail
+	}
+	if input.FromName != nil {
+		settings.FromName = *input.FromName
+	}
+
 	testMail := FormatTestEmail(input.ToEmail)
-	err = p.sender.SendEmail(settings, input.ToEmail, testMail.Subject, testMail.BodyText, testMail.BodyHTML)
+	err = SendEmail(settings, OutboundEmail{
+		FromEmail: settings.FromEmail,
+		FromName:  settings.FromName,
+		ToEmail:   input.ToEmail,
+		Subject:   testMail.Subject,
+		BodyHTML:  testMail.BodyHTML,
+		BodyText:  testMail.BodyText,
+	})
 
 	status := "sent"
 	errMsg := ""
@@ -194,7 +222,6 @@ func (p *emailPlugin) testProjectEmail(req *plugin.Request, res *plugin.Response
 		RecipientEmail:   input.ToEmail,
 		NotificationType: "test",
 		Subject:          testMail.Subject,
-		BodyText:         testMail.BodyText,
 		Status:           status,
 		ErrorMessage:     errMsg,
 		CreatedAt:        nowStr(),
@@ -225,8 +252,31 @@ func (p *emailPlugin) testAdminEmail(req *plugin.Request, res *plugin.Response) 
 		return
 	}
 
+	if input.Provider != nil {
+		settings.Provider = *input.Provider
+	}
+	if input.Endpoint != nil {
+		settings.Endpoint = *input.Endpoint
+	}
+	if input.APIKey != nil {
+		settings.APIKey = *input.APIKey
+	}
+	if input.FromEmail != nil {
+		settings.FromEmail = *input.FromEmail
+	}
+	if input.FromName != nil {
+		settings.FromName = *input.FromName
+	}
+
 	testMail := FormatTestEmail(input.ToEmail)
-	err = p.sender.SendEmail(settings, input.ToEmail, testMail.Subject, testMail.BodyText, testMail.BodyHTML)
+	err = SendEmail(settings, OutboundEmail{
+		FromEmail: settings.FromEmail,
+		FromName:  settings.FromName,
+		ToEmail:   input.ToEmail,
+		Subject:   testMail.Subject,
+		BodyHTML:  testMail.BodyHTML,
+		BodyText:  testMail.BodyText,
+	})
 
 	status := "sent"
 	errMsg := ""
@@ -240,7 +290,6 @@ func (p *emailPlugin) testAdminEmail(req *plugin.Request, res *plugin.Response) 
 		RecipientEmail:   input.ToEmail,
 		NotificationType: "test",
 		Subject:          testMail.Subject,
-		BodyText:         testMail.BodyText,
 		Status:           status,
 		ErrorMessage:     errMsg,
 		CreatedAt:        nowStr(),
@@ -309,11 +358,10 @@ func (p *emailPlugin) loadSettings(scope, projectID string) (*SMTPSettings, erro
 	var query string
 	var args []any
 	if scope == "project" && projectID != "" {
-		query = `SELECT id, scope, project_id, enabled, host, port, username, password, from_email, from_name, security, webhook_url, webhook_api_key, notify_on_assigned, notify_on_mentioned, created_at, updated_at FROM smtp_settings WHERE scope = $1 AND project_id = $2`
-		args = []any{"project", projectID}
+		query = `SELECT id, project_id, provider, endpoint, api_key, from_email, from_name, notify_on_assign, notify_on_mention, notify_on_update, created_at, updated_at FROM smtp_settings WHERE project_id = $1`
+		args = []any{projectID}
 	} else {
-		query = `SELECT id, scope, project_id, enabled, host, port, username, password, from_email, from_name, security, webhook_url, webhook_api_key, notify_on_assigned, notify_on_mentioned, created_at, updated_at FROM smtp_settings WHERE scope = $1`
-		args = []any{"global"}
+		query = `SELECT id, project_id, provider, endpoint, api_key, from_email, from_name, notify_on_assign, notify_on_mention, notify_on_update, created_at, updated_at FROM smtp_settings WHERE project_id IS NULL`
 	}
 
 	res, err := p.db.Query(query, args...)
@@ -322,21 +370,17 @@ func (p *emailPlugin) loadSettings(scope, projectID string) (*SMTPSettings, erro
 	}
 
 	if len(res.Rows) == 0 {
-		// Return default settings
 		return &SMTPSettings{
 			ID:                "default",
-			Scope:             scope,
 			ProjectID:         projectID,
-			Enabled:           true,
-			Host:              "",
-			Port:              587,
-			Username:          "",
-			Password:          "",
-			FromEmail:         "notifications@paca.local",
+			Provider:          ProviderYandexPostbox,
+			Endpoint:          "https://postbox.cloud.yandex.net/v2/email/outbound-emails",
+			APIKey:            "",
+			FromEmail:         "no-reply@paca.local",
 			FromName:          "Paca",
-			Security:          "starttls",
 			NotifyOnAssigned:  true,
 			NotifyOnMentioned: true,
+			NotifyOnUpdate:    false,
 			CreatedAt:         nowStr(),
 			UpdatedAt:         nowStr(),
 		}, nil
@@ -347,22 +391,26 @@ func (p *emailPlugin) loadSettings(scope, projectID string) (*SMTPSettings, erro
 
 func scanSMTPSettings(columns []string, row []any) *SMTPSettings {
 	sc := newRowScanner(columns, row)
+	prov := EmailProviderType(sc.str("provider"))
+	if prov == "" {
+		prov = ProviderYandexPostbox
+	}
+	endpoint := sc.str("endpoint")
+	if endpoint == "" && prov == ProviderYandexPostbox {
+		endpoint = "https://postbox.cloud.yandex.net/v2/email/outbound-emails"
+	}
+
 	return &SMTPSettings{
 		ID:                sc.str("id"),
-		Scope:             sc.str("scope"),
 		ProjectID:         sc.str("project_id"),
-		Enabled:           sc.boolVal("enabled", true),
-		Host:              sc.str("host"),
-		Port:              sc.intVal("port", 587),
-		Username:          sc.str("username"),
-		Password:          sc.str("password"),
+		Provider:          prov,
+		Endpoint:          endpoint,
+		APIKey:            sc.str("api_key"),
 		FromEmail:         sc.str("from_email"),
 		FromName:          sc.str("from_name"),
-		Security:          sc.str("security"),
-		WebhookURL:        sc.str("webhook_url"),
-		WebhookAPIKey:     sc.str("webhook_api_key"),
-		NotifyOnAssigned:  sc.boolVal("notify_on_assigned", true),
-		NotifyOnMentioned: sc.boolVal("notify_on_mentioned", true),
+		NotifyOnAssigned:  sc.boolVal("notify_on_assign", true),
+		NotifyOnMentioned: sc.boolVal("notify_on_mention", true),
+		NotifyOnUpdate:    sc.boolVal("notify_on_update", false),
 		CreatedAt:         sc.str("created_at"),
 		UpdatedAt:         sc.str("updated_at"),
 	}
@@ -374,20 +422,14 @@ func (p *emailPlugin) saveSettings(scope, projectID string, input UpdateSettings
 		return nil, err
 	}
 
-	if input.Enabled != nil {
-		current.Enabled = *input.Enabled
+	if input.Provider != nil {
+		current.Provider = *input.Provider
 	}
-	if input.Host != nil {
-		current.Host = *input.Host
+	if input.Endpoint != nil {
+		current.Endpoint = *input.Endpoint
 	}
-	if input.Port != nil {
-		current.Port = *input.Port
-	}
-	if input.Username != nil {
-		current.Username = *input.Username
-	}
-	if input.Password != nil {
-		current.Password = *input.Password
+	if input.APIKey != nil {
+		current.APIKey = *input.APIKey
 	}
 	if input.FromEmail != nil {
 		current.FromEmail = *input.FromEmail
@@ -395,20 +437,14 @@ func (p *emailPlugin) saveSettings(scope, projectID string, input UpdateSettings
 	if input.FromName != nil {
 		current.FromName = *input.FromName
 	}
-	if input.Security != nil {
-		current.Security = *input.Security
-	}
-	if input.WebhookURL != nil {
-		current.WebhookURL = *input.WebhookURL
-	}
-	if input.WebhookAPIKey != nil {
-		current.WebhookAPIKey = *input.WebhookAPIKey
-	}
 	if input.NotifyOnAssigned != nil {
 		current.NotifyOnAssigned = *input.NotifyOnAssigned
 	}
 	if input.NotifyOnMentioned != nil {
 		current.NotifyOnMentioned = *input.NotifyOnMentioned
+	}
+	if input.NotifyOnUpdate != nil {
+		current.NotifyOnUpdate = *input.NotifyOnUpdate
 	}
 
 	now := nowStr()
@@ -418,11 +454,10 @@ func (p *emailPlugin) saveSettings(scope, projectID string, input UpdateSettings
 	var existingQuery string
 	var existingArgs []any
 	if scope == "project" && projectID != "" {
-		existingQuery = `SELECT id FROM smtp_settings WHERE scope = $1 AND project_id = $2`
-		existingArgs = []any{"project", projectID}
+		existingQuery = `SELECT id FROM smtp_settings WHERE project_id = $1`
+		existingArgs = []any{projectID}
 	} else {
-		existingQuery = `SELECT id FROM smtp_settings WHERE scope = $1`
-		existingArgs = []any{"global"}
+		existingQuery = `SELECT id FROM smtp_settings WHERE project_id IS NULL`
 	}
 
 	res, _ := p.db.Query(existingQuery, existingArgs...)
@@ -430,11 +465,11 @@ func (p *emailPlugin) saveSettings(scope, projectID string, input UpdateSettings
 		id := fmt.Sprintf("%v", res.Rows[0][0])
 		current.ID = id
 		_, err = p.db.Exec(
-			`UPDATE smtp_settings SET enabled = $1, host = $2, port = $3, username = $4, password = $5, from_email = $6, from_name = $7, security = $8, webhook_url = $9, webhook_api_key = $10, notify_on_assigned = $11, notify_on_mentioned = $12, updated_at = $13 WHERE id = $14`,
-			current.Enabled, current.Host, current.Port, current.Username, current.Password, current.FromEmail, current.FromName, current.Security, current.WebhookURL, current.WebhookAPIKey, current.NotifyOnAssigned, current.NotifyOnMentioned, now, id,
+			`UPDATE smtp_settings SET provider = $1, endpoint = $2, api_key = $3, from_email = $4, from_name = $5, notify_on_assign = $6, notify_on_mention = $7, notify_on_update = $8, updated_at = $9 WHERE id = $10`,
+			string(current.Provider), current.Endpoint, current.APIKey, current.FromEmail, current.FromName, current.NotifyOnAssigned, current.NotifyOnMentioned, current.NotifyOnUpdate, now, id,
 		)
 	} else {
-		id := fmt.Sprintf("smtp-%d", timeNowNano())
+		id := fmt.Sprintf("email-cfg-%d", timeNowNano())
 		current.ID = id
 		current.CreatedAt = now
 		var pid any
@@ -442,8 +477,8 @@ func (p *emailPlugin) saveSettings(scope, projectID string, input UpdateSettings
 			pid = projectID
 		}
 		_, err = p.db.Exec(
-			`INSERT INTO smtp_settings (id, scope, project_id, enabled, host, port, username, password, from_email, from_name, security, webhook_url, webhook_api_key, notify_on_assigned, notify_on_mentioned, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-			id, scope, pid, current.Enabled, current.Host, current.Port, current.Username, current.Password, current.FromEmail, current.FromName, current.Security, current.WebhookURL, current.WebhookAPIKey, current.NotifyOnAssigned, current.NotifyOnMentioned, now, now,
+			`INSERT INTO smtp_settings (id, project_id, provider, endpoint, api_key, from_email, from_name, notify_on_assign, notify_on_mention, notify_on_update, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			id, pid, string(current.Provider), current.Endpoint, current.APIKey, current.FromEmail, current.FromName, current.NotifyOnAssigned, current.NotifyOnMentioned, current.NotifyOnUpdate, now, now,
 		)
 	}
 
@@ -457,10 +492,10 @@ func (p *emailPlugin) loadLogs(projectID string, limit int) ([]EmailLog, error) 
 	var query string
 	var args []any
 	if projectID != "" {
-		query = `SELECT id, project_id, notification_id, recipient_user_id, recipient_email, notification_type, subject, body_text, status, error_message, created_at FROM email_logs WHERE project_id = $1 ORDER BY created_at DESC LIMIT $2`
+		query = `SELECT id, project_id, recipient_user_id, recipient_email, notification_type, subject, status, error_message, created_at FROM email_logs WHERE project_id = $1 ORDER BY created_at DESC LIMIT $2`
 		args = []any{projectID, limit}
 	} else {
-		query = `SELECT id, project_id, notification_id, recipient_user_id, recipient_email, notification_type, subject, body_text, status, error_message, created_at FROM email_logs ORDER BY created_at DESC LIMIT $1`
+		query = `SELECT id, project_id, recipient_user_id, recipient_email, notification_type, subject, status, error_message, created_at FROM email_logs ORDER BY created_at DESC LIMIT $1`
 		args = []any{limit}
 	}
 
@@ -475,12 +510,10 @@ func (p *emailPlugin) loadLogs(projectID string, limit int) ([]EmailLog, error) 
 		logs = append(logs, EmailLog{
 			ID:               sc.str("id"),
 			ProjectID:        sc.str("project_id"),
-			NotificationID:   sc.str("notification_id"),
 			RecipientUserID:  sc.str("recipient_user_id"),
 			RecipientEmail:   sc.str("recipient_email"),
 			NotificationType: sc.str("notification_type"),
 			Subject:          sc.str("subject"),
-			BodyText:         sc.str("body_text"),
 			Status:           sc.str("status"),
 			ErrorMessage:     sc.str("error_message"),
 			CreatedAt:        sc.str("created_at"),
@@ -490,12 +523,9 @@ func (p *emailPlugin) loadLogs(projectID string, limit int) ([]EmailLog, error) 
 }
 
 func (p *emailPlugin) recordLog(l EmailLog) error {
-	var pid, nid any
+	var pid any
 	if l.ProjectID != "" {
 		pid = l.ProjectID
-	}
-	if l.NotificationID != "" {
-		nid = l.NotificationID
 	}
 	var errMsg any
 	if l.ErrorMessage != "" {
@@ -503,8 +533,8 @@ func (p *emailPlugin) recordLog(l EmailLog) error {
 	}
 
 	_, err := p.db.Exec(
-		`INSERT INTO email_logs (id, project_id, notification_id, recipient_user_id, recipient_email, notification_type, subject, body_text, status, error_message, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		l.ID, pid, nid, l.RecipientUserID, l.RecipientEmail, l.NotificationType, l.Subject, l.BodyText, l.Status, errMsg, l.CreatedAt,
+		`INSERT INTO email_logs (id, project_id, recipient_user_id, recipient_email, notification_type, subject, status, error_message, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		l.ID, pid, l.RecipientUserID, l.RecipientEmail, l.NotificationType, l.Subject, l.Status, errMsg, l.CreatedAt,
 	)
 	return err
 }

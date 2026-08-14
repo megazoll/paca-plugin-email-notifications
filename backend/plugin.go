@@ -2,21 +2,15 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	plugin "github.com/Paca-AI/plugin-sdk-go"
 )
 
-func timeNowNano() int64 {
-	return time.Now().UnixNano()
-}
-
 // emailPlugin implements plugin.Plugin.
 type emailPlugin struct {
-	db     *plugin.DB
-	cache  *plugin.Cache
-	log    *plugin.Logger
-	sender MailSender
+	db    *plugin.DB
+	cache *plugin.Cache
+	log   *plugin.Logger
 }
 
 // Init registers routes and event subscribers.
@@ -24,9 +18,6 @@ func (p *emailPlugin) Init(ctx *plugin.Context) error {
 	p.db = ctx.DB()
 	p.cache = ctx.Cache()
 	p.log = ctx.Log()
-	if p.sender == nil {
-		p.sender = &DefaultMailSender{}
-	}
 
 	// ── Project-scope routes ───────────────────────────────────────────────
 	ctx.Route("GET", "/projects/:projectId/email-notifications/settings", p.getProjectSettings)
@@ -35,13 +26,14 @@ func (p *emailPlugin) Init(ctx *plugin.Context) error {
 	ctx.Route("POST", "/projects/:projectId/email-notifications/test", p.testProjectEmail)
 
 	// ── Admin-scope routes ──────────────────────────────────────────────────
-	ctx.Route("GET", "/email-notifications/admin-settings", p.getAdminSettings)
-	ctx.Route("PATCH", "/email-notifications/admin-settings", p.updateAdminSettings)
-	ctx.Route("GET", "/email-notifications/admin-logs", p.getAdminLogs)
-	ctx.Route("POST", "/email-notifications/admin-test", p.testAdminEmail)
-	ctx.Route("GET", "/email-notifications/admin-overrides", p.listAdminOverrides)
-	ctx.Route("POST", "/email-notifications/admin-overrides", p.saveAdminOverride)
-	ctx.Route("DELETE", "/email-notifications/admin-overrides/:userId", p.deleteAdminOverride)
+	ctx.Route("GET", "/admin/email-notifications/settings", p.getAdminSettings)
+	ctx.Route("PATCH", "/admin/email-notifications/settings", p.updateAdminSettings)
+	ctx.Route("GET", "/admin/email-notifications/logs", p.getAdminLogs)
+	ctx.Route("POST", "/admin/email-notifications/test", p.testAdminEmail)
+	ctx.Route("GET", "/admin/email-notifications/overrides", p.listAdminOverrides)
+	ctx.Route("PUT", "/admin/email-notifications/overrides/:userId", p.saveAdminOverride)
+	ctx.Route("POST", "/admin/email-notifications/overrides/:userId", p.saveAdminOverride)
+	ctx.Route("DELETE", "/admin/email-notifications/overrides/:userId", p.deleteAdminOverride)
 
 	// ── Event subscriptions ────────────────────────────────────────────────
 	ctx.On("notification.created", p.onNotificationCreated)
@@ -51,7 +43,7 @@ func (p *emailPlugin) Init(ctx *plugin.Context) error {
 
 func (p *emailPlugin) Shutdown() {}
 
-// onNotificationCreated handles incoming in-app notification events.
+// onNotificationCreated handles incoming notification events.
 func (p *emailPlugin) onNotificationCreated(evt *plugin.Event) {
 	payload, err := plugin.JSONPayload[NotificationEventPayload](evt)
 	if err != nil {
@@ -79,15 +71,11 @@ func (p *emailPlugin) onNotificationCreated(evt *plugin.Event) {
 
 	// Load settings (project-specific or global)
 	settings, err := p.loadSettings("project", payload.ProjectID)
-	if err != nil || !settings.Enabled || settings.Host == "" {
+	if err != nil || settings.APIKey == "" {
 		settings, err = p.loadSettings("global", "")
 	}
 	if err != nil {
 		p.log.Error(fmt.Sprintf("failed to load settings for notification email: %v", err))
-		return
-	}
-
-	if !settings.Enabled {
 		return
 	}
 
@@ -158,7 +146,14 @@ func (p *emailPlugin) onNotificationCreated(evt *plugin.Event) {
 	)
 
 	// Send Email
-	sendErr := p.sender.SendEmail(settings, recipientEmail, formatted.Subject, formatted.BodyText, formatted.BodyHTML)
+	sendErr := SendEmail(settings, OutboundEmail{
+		FromEmail: settings.FromEmail,
+		FromName:  settings.FromName,
+		ToEmail:   recipientEmail,
+		Subject:   formatted.Subject,
+		BodyHTML:  formatted.BodyHTML,
+		BodyText:  formatted.BodyText,
+	})
 
 	status := "sent"
 	errMsg := ""
@@ -174,12 +169,10 @@ func (p *emailPlugin) onNotificationCreated(evt *plugin.Event) {
 	_ = p.recordLog(EmailLog{
 		ID:               fmt.Sprintf("log-%d", timeNowNano()),
 		ProjectID:        payload.ProjectID,
-		NotificationID:   payload.ID,
 		RecipientUserID:  payload.RecipientUserID,
 		RecipientEmail:   recipientEmail,
 		NotificationType: payload.Type,
 		Subject:          formatted.Subject,
-		BodyText:         formatted.BodyText,
 		Status:           status,
 		ErrorMessage:     errMsg,
 		CreatedAt:        nowStr(),

@@ -9,17 +9,15 @@ import {
 
 interface SMTPSettings {
   id: string;
-  scope: string;
   project_id?: string;
-  enabled: boolean;
-  host: string;
-  port: number;
-  username: string;
+  provider: string;
+  endpoint: string;
+  api_key?: string;
   from_email: string;
   from_name: string;
-  security: string;
   notify_on_assigned: boolean;
   notify_on_mentioned: boolean;
+  notify_on_update: boolean;
 }
 
 interface EmailLog {
@@ -41,50 +39,53 @@ interface UserEmailOverride {
 
 function formatSettings(s: SMTPSettings): string {
   return [
-    `Scope: ${s.scope} ${s.project_id ? `(Project: ${s.project_id})` : ""}`,
-    `Enabled: ${s.enabled}`,
-    `Host: ${s.host || "N/A"}`,
-    `Port: ${s.port}`,
-    `Security: ${s.security}`,
+    `Project: ${s.project_id || "Global"}`,
+    `Provider: ${s.provider}`,
+    `Endpoint: ${s.endpoint}`,
+    `API Key: ${s.api_key ? "configured" : "none"}`,
     `From: ${s.from_name} <${s.from_email}>`,
     `Notify on Assigned: ${s.notify_on_assigned}`,
     `Notify on Mentioned: ${s.notify_on_mentioned}`,
+    `Notify on Update: ${s.notify_on_update}`,
   ].join("\n");
 }
 
 function formatLog(log: EmailLog): string {
-  const statusStr = log.status === "sent" ? "SENT" : `FAILED (${log.error_message || "Unknown error"})`;
+  const statusStr =
+    log.status === "sent"
+      ? "SENT"
+      : log.status === "skipped"
+      ? "SKIPPED"
+      : `FAILED (${log.error_message || "Unknown error"})`;
   return `[${log.created_at}] [${log.notification_type.toUpperCase()}] To: ${log.recipient_email} | Subject: "${log.subject}" | Status: ${statusStr}`;
 }
 
 const tools: Tool[] = [
   {
     name: "email_notifications_get_settings",
-    description: "Get email notification and SMTP settings for a project or global instance.",
+    description: "Get email notification configuration for a project or global instance.",
     inputSchema: {
       type: "object",
       properties: {
-        projectId: { type: "string", description: "Optional project UUID context. If omitted, returns global settings." },
+        projectId: { type: "string", description: "Optional project UUID. If omitted, returns global settings." },
       },
     },
   },
   {
     name: "email_notifications_update_settings",
-    description: "Update email notification triggers and SMTP server configuration.",
+    description: "Update email notification provider (Yandex Cloud Postbox, Resend, SendGrid, Mailgun, Postmark, Brevo, Webhook) and triggers.",
     inputSchema: {
       type: "object",
       properties: {
-        projectId: { type: "string", description: "Optional project UUID context." },
-        enabled: { type: "boolean", description: "Enable or disable email delivery." },
-        host: { type: "string", description: "SMTP server host." },
-        port: { type: "number", description: "SMTP server port (e.g. 587 or 465)." },
-        username: { type: "string", description: "SMTP authentication username." },
-        password: { type: "string", description: "SMTP authentication password." },
+        projectId: { type: "string", description: "Optional project UUID." },
+        provider: { type: "string", enum: ["yandex_postbox", "resend", "sendgrid", "mailgun", "postmark", "brevo", "webhook"] },
+        endpoint: { type: "string", description: "API Endpoint URL" },
+        api_key: { type: "string", description: "API Key / IAM Token" },
         from_email: { type: "string", description: "Sender email address." },
         from_name: { type: "string", description: "Sender display name." },
-        security: { type: "string", enum: ["starttls", "tls", "none"], description: "Security mode." },
         notify_on_assigned: { type: "boolean", description: "Send email when assigned to a task." },
         notify_on_mentioned: { type: "boolean", description: "Send email when mentioned in comments." },
+        notify_on_update: { type: "boolean", description: "Send email on task updates." },
       },
     },
   },
@@ -94,25 +95,25 @@ const tools: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        projectId: { type: "string", description: "Optional project UUID context." },
+        projectId: { type: "string", description: "Optional project UUID." },
       },
     },
   },
   {
     name: "email_notifications_send_test",
-    description: "Send a test email to verify SMTP configuration and connectivity.",
+    description: "Send a diagnostic test email to verify credentials and connectivity.",
     inputSchema: {
       type: "object",
       properties: {
-        projectId: { type: "string", description: "Optional project UUID context." },
-        toEmail: { type: "string", description: "Recipient email address for test message." },
+        to_email: { type: "string", description: "Recipient email address." },
+        projectId: { type: "string", description: "Optional project UUID." },
       },
-      required: ["toEmail"],
+      required: ["to_email"],
     },
   },
   {
     name: "email_notifications_list_overrides",
-    description: "List user email override mappings.",
+    description: "List all user ID to email address overrides.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -120,23 +121,23 @@ const tools: Tool[] = [
   },
   {
     name: "email_notifications_save_override",
-    description: "Save an email override mapping for a user whose username is not a valid email.",
+    description: "Set an email override for a user ID whose login is not an email.",
     inputSchema: {
       type: "object",
       properties: {
         userId: { type: "string", description: "User UUID." },
-        email: { type: "string", description: "Valid email address." },
+        email: { type: "string", description: "Destination email address." },
       },
       required: ["userId", "email"],
     },
   },
   {
     name: "email_notifications_delete_override",
-    description: "Delete an email override mapping for a user.",
+    description: "Delete an email override for a user ID.",
     inputSchema: {
       type: "object",
       properties: {
-        userId: { type: "string", description: "User UUID to remove." },
+        userId: { type: "string", description: "User UUID." },
       },
       required: ["userId"],
     },
@@ -149,76 +150,84 @@ const entry: PluginMCPEntry = {
   async handleToolCall(
     name: string,
     args: Record<string, unknown>,
-    context: PluginMCPContext,
+    context: PluginMCPContext
   ) {
     const api = new PluginAPIClient(context);
+    const projectId = args.projectId as string | undefined;
 
     try {
       switch (name) {
         case "email_notifications_get_settings": {
-          const { projectId } = args as { projectId?: string };
           const path = projectId
             ? `projects/${projectId}/email-notifications/settings`
-            : "email-notifications/admin-settings";
-          const settings = await api.pluginGet<SMTPSettings>(path);
-          return textResult(formatSettings(settings));
+            : "admin/email-notifications/settings";
+          const res = await api.pluginGet<SMTPSettings>(path);
+          return textResult(formatSettings(res));
         }
 
         case "email_notifications_update_settings": {
-          const { projectId, ...input } = args as { projectId?: string } & Record<string, unknown>;
           const path = projectId
             ? `projects/${projectId}/email-notifications/settings`
-            : "email-notifications/admin-settings";
-          const updated = await api.pluginPatch<SMTPSettings>(path, input);
-          return textResult(`Settings updated successfully:\n\n${formatSettings(updated)}`);
+            : "admin/email-notifications/settings";
+          const res = await api.pluginPatch<SMTPSettings>(path, args);
+          return textResult(`Settings updated successfully:\n\n${formatSettings(res)}`);
         }
 
         case "email_notifications_get_logs": {
-          const { projectId } = args as { projectId?: string };
           const path = projectId
             ? `projects/${projectId}/email-notifications/logs`
-            : "email-notifications/admin-logs";
+            : "admin/email-notifications/logs";
           const logs = await api.pluginGet<EmailLog[]>(path);
-          if (logs.length === 0) return textResult("No email logs recorded.");
-          return textResult(`Email Logs (${logs.length}):\n\n` + logs.map(formatLog).join("\n"));
+          if (!logs || logs.length === 0) {
+            return textResult("No email delivery logs recorded yet.");
+          }
+          return textResult(logs.map(formatLog).join("\n"));
         }
 
         case "email_notifications_send_test": {
-          const { projectId, toEmail } = args as { projectId?: string; toEmail: string };
+          const toEmail = String(args.to_email || "");
           const path = projectId
             ? `projects/${projectId}/email-notifications/test`
-            : "email-notifications/admin-test";
-          const res = await api.pluginPost<{ sent: boolean; recipient: string }>(path, { to_email: toEmail });
-          return textResult(`Test email dispatched successfully to ${toEmail}.`);
+            : "admin/email-notifications/test";
+          const res = await api.pluginPost<{ sent: boolean; recipient: string }>(path, {
+            to_email: toEmail,
+          });
+          return textResult(`Test email successfully sent to ${res.recipient}`);
         }
 
         case "email_notifications_list_overrides": {
-          const overrides = await api.pluginGet<UserEmailOverride[]>("email-notifications/admin-overrides");
-          if (overrides.length === 0) return textResult("No user email overrides found.");
-          return textResult(
-            `User Email Overrides (${overrides.length}):\n\n` +
-              overrides.map((o) => `User ID: ${o.user_id} -> Email: ${o.email} (Updated: ${o.updated_at})`).join("\n"),
+          const overrides = await api.pluginGet<UserEmailOverride[]>("admin/email-notifications/overrides");
+          if (!overrides || overrides.length === 0) {
+            return textResult("No email overrides configured.");
+          }
+          const lines = overrides.map(
+            (ov: UserEmailOverride) => `User ID: ${ov.user_id} -> Email: ${ov.email} (Updated: ${ov.updated_at})`
           );
+          return textResult(lines.join("\n"));
         }
 
         case "email_notifications_save_override": {
-          const { userId, email } = args as { userId: string; email: string };
-          await api.pluginPost("email-notifications/admin-overrides", { user_id: userId, email });
-          return textResult(`Email override saved: ${userId} -> ${email}`);
+          const userId = String(args.userId || "");
+          const email = String(args.email || "");
+          await api.pluginPost(`admin/email-notifications/overrides/${userId}`, {
+            user_id: userId,
+            email,
+          });
+          return textResult(`Email override saved for user ${userId} -> ${email}`);
         }
 
         case "email_notifications_delete_override": {
-          const { userId } = args as { userId: string };
-          await api.pluginDelete(`email-notifications/admin-overrides/${userId}`);
+          const userId = String(args.userId || "");
+          await api.pluginDelete(`admin/email-notifications/overrides/${userId}`);
           return textResult(`Email override deleted for user ${userId}`);
         }
 
         default:
           return errorResult(`Unknown tool: ${name}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       const message = err instanceof Error ? err.message : String(err);
-      return errorResult(`Tool ${name} failed: ${message}`);
+      return errorResult(`Email Notifications Error: ${message}`);
     }
   },
 };
