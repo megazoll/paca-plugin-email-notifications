@@ -10,7 +10,7 @@ import (
 
 //go:wasmimport paca fetch
 //go:noescape
-func hostFetch(reqPtr, reqLen, resPtrPtr, resLenPtr uintptr)
+func hostFetch(reqPtr, reqLen, resPtrPtr, resLenPtr int64)
 
 type fetchHostRequest struct {
 	Method  string            `json:"method"`
@@ -33,16 +33,16 @@ func doFetch(req fetchHostRequest) (*fetchHostResponse, error) {
 	}
 
 	var resPtr, resLen uint32
-	var reqPtr uintptr
+	var reqPtr int64
 	if len(reqJSON) > 0 {
-		reqPtr = uintptr(unsafe.Pointer(&reqJSON[0]))
+		reqPtr = int64(uintptr(unsafe.Pointer(&reqJSON[0])))
 	}
 
 	hostFetch(
 		reqPtr,
-		uintptr(len(reqJSON)),
-		uintptr(unsafe.Pointer(&resPtr)),
-		uintptr(unsafe.Pointer(&resLen)),
+		int64(len(reqJSON)),
+		int64(uintptr(unsafe.Pointer(&resPtr))),
+		int64(uintptr(unsafe.Pointer(&resLen))),
 	)
 
 	if resPtr == 0 || resLen == 0 {
