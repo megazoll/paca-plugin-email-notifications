@@ -2,7 +2,7 @@
   "id": "com.paca.email-notifications",
   "displayName": "Email Notifications",
   "description": "Duplicates Paca notifications (task assignments, mentions, and updates) to user email addresses via Yandex Cloud Postbox, Resend, SendGrid, Mailgun, Postmark, Brevo, or Webhooks, using username as the recipient email.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minCoreVersion": "v0.11.2",
   "permissions": [
     "db.read",
@@ -14,11 +14,13 @@
   "backend": {
     "allowedOutboundDomains": ["*"],
     "eventSubscriptions": [
-      "notification.created",
       "task.created",
       "task.updated",
+      "task.deleted",
+      "comment",
       "task.comment.added",
-      "comment"
+      "task.comment.updated",
+      "notification.created"
     ],
     "routes": [
       {

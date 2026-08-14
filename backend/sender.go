@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	plugin "github.com/Paca-AI/plugin-sdk-go"
 )
 
 // OutboundEmail encapsulates content to be delivered.
@@ -20,6 +22,18 @@ type OutboundEmail struct {
 	Subject   string
 	BodyHTML  string
 	BodyText  string
+}
+
+// httpRequest executes an outbound HTTP request via plugin.Fetch.
+func httpRequest(method, endpoint string, headers map[string]string, body string) error {
+	resp, err := plugin.Fetch(method, endpoint, headers, body)
+	if err != nil {
+		return err
+	}
+	if resp.Status < 200 || resp.Status >= 300 {
+		return fmt.Errorf("HTTP %d: %s", resp.Status, resp.Body)
+	}
+	return nil
 }
 
 // SendEmail dispatches the email using the configured HTTP provider.
@@ -112,7 +126,6 @@ func sendYandexPostbox(settings *SMTPSettings, email OutboundEmail, from, fromNa
 
 	apiKey := strings.TrimSpace(settings.APIKey)
 	if apiKey != "" {
-		// Check if provided as Static Access Key pair: KeyID:SecretKey or KeyID\nSecretKey or KeyID SecretKey
 		var accessKey, secretKey string
 		if strings.Contains(apiKey, ":") {
 			parts := strings.SplitN(apiKey, ":", 2)
@@ -144,12 +157,7 @@ func sendYandexPostbox(settings *SMTPSettings, email OutboundEmail, from, fromNa
 		}
 	}
 
-	_, err = doFetch(fetchHostRequest{
-		Method:  "POST",
-		URL:     endpoint,
-		Headers: headers,
-		Body:    string(bodyBytes),
-	})
+	err = httpRequest("POST", endpoint, headers, string(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("yandex postbox api: %w", err)
 	}
@@ -230,12 +238,7 @@ func sendResend(settings *SMTPSettings, email OutboundEmail, from, fromName stri
 		"Authorization": "Bearer " + strings.TrimSpace(settings.APIKey),
 	}
 
-	_, err = doFetch(fetchHostRequest{
-		Method:  "POST",
-		URL:     endpoint,
-		Headers: headers,
-		Body:    string(bodyBytes),
-	})
+	err = httpRequest("POST", endpoint, headers, string(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("resend api: %w", err)
 	}
@@ -277,12 +280,7 @@ func sendSendGrid(settings *SMTPSettings, email OutboundEmail, from, fromName st
 		"Authorization": "Bearer " + strings.TrimSpace(settings.APIKey),
 	}
 
-	_, err = doFetch(fetchHostRequest{
-		Method:  "POST",
-		URL:     endpoint,
-		Headers: headers,
-		Body:    string(bodyBytes),
-	})
+	err = httpRequest("POST", endpoint, headers, string(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("sendgrid api: %w", err)
 	}
@@ -324,12 +322,7 @@ func sendMailgun(settings *SMTPSettings, email OutboundEmail, from, fromName str
 		"Authorization": authHeader,
 	}
 
-	_, err = doFetch(fetchHostRequest{
-		Method:  "POST",
-		URL:     endpoint,
-		Headers: headers,
-		Body:    string(bodyBytes),
-	})
+	err = httpRequest("POST", endpoint, headers, string(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("mailgun api: %w", err)
 	}
@@ -365,12 +358,7 @@ func sendPostmark(settings *SMTPSettings, email OutboundEmail, from, fromName st
 		"X-Postmark-Server-Token": strings.TrimSpace(settings.APIKey),
 	}
 
-	_, err = doFetch(fetchHostRequest{
-		Method:  "POST",
-		URL:     endpoint,
-		Headers: headers,
-		Body:    string(bodyBytes),
-	})
+	err = httpRequest("POST", endpoint, headers, string(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("postmark api: %w", err)
 	}
@@ -406,12 +394,7 @@ func sendBrevo(settings *SMTPSettings, email OutboundEmail, from, fromName strin
 		"api-key":      strings.TrimSpace(settings.APIKey),
 	}
 
-	_, err = doFetch(fetchHostRequest{
-		Method:  "POST",
-		URL:     endpoint,
-		Headers: headers,
-		Body:    string(bodyBytes),
-	})
+	err = httpRequest("POST", endpoint, headers, string(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("brevo api: %w", err)
 	}
@@ -446,12 +429,7 @@ func sendWebhook(settings *SMTPSettings, email OutboundEmail, from, fromName str
 		headers["Authorization"] = "Bearer " + apiKey
 	}
 
-	_, err = doFetch(fetchHostRequest{
-		Method:  "POST",
-		URL:     endpoint,
-		Headers: headers,
-		Body:    string(bodyBytes),
-	})
+	err = httpRequest("POST", endpoint, headers, string(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("webhook delivery: %w", err)
 	}
