@@ -1,0 +1,201 @@
+{
+  "id": "com.paca.email-notifications",
+  "displayName": "Email Notifications",
+  "description": "Duplicates Paca notifications (task assignments, mentions, and updates) to user email addresses via SMTP or Webhook, using username as the recipient email.",
+  "version": "0.1.0",
+  "minCoreVersion": "v0.11.2",
+  "permissions": [
+    "db.read",
+    "db.write",
+    "events.subscribe",
+    "cache"
+  ],
+  "backend": {
+    "eventSubscriptions": [
+      "notification.created"
+    ],
+    "routes": [
+      {
+        "method": "GET",
+        "path": "/projects/:projectId/email-notifications/settings",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "project",
+            "permissions": ["projects.read"]
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/projects/:projectId/email-notifications/settings",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "project",
+            "permissions": ["projects.write"]
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/projects/:projectId/email-notifications/logs",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "project",
+            "permissions": ["projects.read"]
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/projects/:projectId/email-notifications/test",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "project",
+            "permissions": ["projects.write"]
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/email-notifications/admin-settings",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "global",
+            "permissions": ["users.write"]
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/email-notifications/admin-settings",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "global",
+            "permissions": ["users.write"]
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/email-notifications/admin-logs",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "global",
+            "permissions": ["users.write"]
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/email-notifications/admin-test",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "global",
+            "permissions": ["users.write"]
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/email-notifications/admin-overrides",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "global",
+            "permissions": ["users.write"]
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/email-notifications/admin-overrides",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "global",
+            "permissions": ["users.write"]
+          }
+        ]
+      },
+      {
+        "method": "DELETE",
+        "path": "/email-notifications/admin-overrides/:userId",
+        "middlewares": [
+          { "name": "optionalAuthn" },
+          { "name": "requireFreshPassword" },
+          {
+            "name": "requirePermissions",
+            "scope": "global",
+            "permissions": ["users.write"]
+          }
+        ]
+      }
+    ],
+    "migrations": [
+      "0001_create_email_notifications.sql"
+    ]
+  },
+  "frontend": {
+    "remoteEntryUrl": "/plugins/com.paca.email-notifications/assets/remoteEntry.js",
+    "extensionPoints": [
+      {
+        "point": "project.settings.tab",
+        "component": "ProjectEmailSettingsTab",
+        "label": "Email Notifications",
+        "order": 15
+      },
+      {
+        "point": "admin.page",
+        "component": "AdminEmailSettingsPage",
+        "order": 15
+      }
+    ],
+    "navItems": [
+      {
+        "scope": "admin",
+        "slug": "email-notifications",
+        "label": "Email Notifications",
+        "icon": "Mail",
+        "component": "AdminEmailSettingsPage",
+        "order": 15
+      }
+    ]
+  },
+  "mcp": {
+    "remoteEntryUrl": "/plugins-mcp/com.paca.email-notifications/mcp.js"
+  },
+  "skills": {
+    "baseUrl": "/plugins-skills/com.paca.email-notifications",
+    "names": [
+      "paca-email-notifications"
+    ]
+  }
+}
