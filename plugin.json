@@ -80,8 +80,8 @@
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
-            "scope": "instance",
-            "permissions": ["instance.admin"]
+            "scope": "global",
+            "permissions": ["users.read"]
           }
         ]
       },
@@ -93,8 +93,8 @@
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
-            "scope": "instance",
-            "permissions": ["instance.admin"]
+            "scope": "global",
+            "permissions": ["users.write"]
           }
         ]
       },
@@ -106,8 +106,8 @@
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
-            "scope": "instance",
-            "permissions": ["instance.admin"]
+            "scope": "global",
+            "permissions": ["users.read"]
           }
         ]
       },
@@ -119,8 +119,8 @@
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
-            "scope": "instance",
-            "permissions": ["instance.admin"]
+            "scope": "global",
+            "permissions": ["users.write"]
           }
         ]
       },
@@ -132,8 +132,8 @@
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
-            "scope": "instance",
-            "permissions": ["instance.admin"]
+            "scope": "global",
+            "permissions": ["users.read"]
           }
         ]
       },
@@ -145,8 +145,8 @@
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
-            "scope": "instance",
-            "permissions": ["instance.admin"]
+            "scope": "global",
+            "permissions": ["users.write"]
           }
         ]
       },
@@ -158,8 +158,8 @@
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
-            "scope": "instance",
-            "permissions": ["instance.admin"]
+            "scope": "global",
+            "permissions": ["users.write"]
           }
         ]
       },
@@ -171,8 +171,8 @@
           { "name": "requireFreshPassword" },
           {
             "name": "requirePermissions",
-            "scope": "instance",
-            "permissions": ["instance.admin"]
+            "scope": "global",
+            "permissions": ["users.write"]
           }
         ]
       }

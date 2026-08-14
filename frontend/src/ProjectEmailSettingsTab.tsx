@@ -11,7 +11,6 @@ import {
   Bell,
   Info,
   ShieldCheck,
-  Sliders,
 } from "lucide-react";
 import {
   useProjectEmailSettings,
@@ -160,7 +159,7 @@ function Content(props: ProjectPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-4xl flex flex-col gap-8 p-4 sm:p-6">
       {/* Header Banner */}
       <div className="flex flex-col gap-1.5 border-b border-border/40 pb-5">
         <div className="flex items-center gap-3">
@@ -186,25 +185,25 @@ function Content(props: ProjectPageProps) {
       )}
 
       {/* Info Callout */}
-      <div className="flex gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 text-xs sm:text-sm text-muted-foreground">
+      <div className="flex gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 sm:p-5 text-xs sm:text-sm text-muted-foreground">
         <Info className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-primary mt-0.5" />
-        <div className="space-y-1">
-          <span className="font-semibold text-foreground">Recipient Email Resolution: </span>
-          <span>
+        <div className="space-y-1.5 leading-relaxed">
+          <div className="font-semibold text-foreground">Recipient Email Resolution: </div>
+          <div>
             When a notification triggers, Paca inspects the recipient's username. If it is formatted as an email (e.g. <code>user@company.com</code>) or configured via Admin Overrides, an email is dispatched. Other usernames are safely skipped.
-          </span>
+          </div>
         </div>
       </div>
 
       {/* Main Settings Form */}
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSave} className="flex flex-col gap-6">
         {/* Notification Triggers */}
         <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-5 flex items-center gap-2">
             <Bell className="h-4 w-4 text-primary" />
             <h3 className="text-base font-semibold text-foreground">Notification Triggers</h3>
           </div>
-          <div className="space-y-3.5">
+          <div className="flex flex-col gap-3.5">
             <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
@@ -254,7 +253,7 @@ function Content(props: ProjectPageProps) {
           </div>
 
           {useCustomProjectProvider ? (
-            <div className="space-y-4 pt-1">
+            <div className="flex flex-col gap-4 pt-1">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-foreground">
                   Provider
@@ -338,11 +337,11 @@ function Content(props: ProjectPageProps) {
           )}
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-1">
           <button
             type="submit"
             disabled={updateSettingsMutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
@@ -356,7 +355,7 @@ function Content(props: ProjectPageProps) {
           <Send className="h-4 w-4 text-primary" />
           <h3 className="text-base font-semibold text-foreground">Send Test Email</h3>
         </div>
-        <p className="mb-4 text-xs text-muted-foreground">
+        <p className="mb-4 text-xs sm:text-sm text-muted-foreground">
           Verify email delivery by sending a diagnostic test message using the configured provider.
         </p>
         <form onSubmit={handleSendTest} className="flex flex-col gap-3 sm:flex-row">

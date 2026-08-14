@@ -190,7 +190,7 @@ function Content(props: AdminPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6 sm:p-8">
+    <div className="mx-auto max-w-5xl flex flex-col gap-8 p-6 sm:p-8">
       {/* Header */}
       <div className="flex flex-col gap-1.5 border-b border-border/40 pb-5">
         <div className="flex items-center gap-3">
@@ -216,11 +216,11 @@ function Content(props: AdminPageProps) {
       )}
 
       {/* Info Banner */}
-      <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs sm:text-sm text-foreground">
-        <Info className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-primary mt-0.5" />
-        <div className="space-y-1.5 leading-relaxed">
-          <div className="font-semibold text-foreground">How recipient email routing works:</div>
-          <div className="text-xs text-muted-foreground space-y-1">
+      <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5 text-xs sm:text-sm text-foreground">
+        <Info className="h-5 w-5 shrink-0 text-primary mt-0.5" />
+        <div className="space-y-2 leading-relaxed">
+          <div className="font-semibold text-foreground text-sm">How recipient email routing works:</div>
+          <div className="text-xs text-muted-foreground space-y-1.5">
             <div>1. <strong>Direct Email Usernames:</strong> If a user's username is an email address (e.g. <code>alice@company.com</code>), notifications are sent directly to that address.</div>
             <div>2. <strong>User Email Overrides:</strong> If a user has a username handle (e.g. <code>admin</code>, <code>john</code>), map their User ID to an email in the table below.</div>
             <div>3. <strong>Safe Skipping:</strong> Users without a valid email username or override will not receive email notifications.</div>
@@ -229,15 +229,15 @@ function Content(props: AdminPageProps) {
       </div>
 
       {/* Settings Form */}
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSave} className="flex flex-col gap-6">
         {/* Provider Configuration */}
         <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-          <div className="mb-4 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
+          <div className="mb-5 flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-semibold text-foreground">Global Email Provider</h2>
           </div>
 
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-foreground">
                 Provider Type
@@ -318,11 +318,11 @@ function Content(props: AdminPageProps) {
 
         {/* Global Notification Triggers */}
         <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
-          <div className="mb-4 flex items-center gap-2">
-            <Bell className="h-4 w-4 text-primary" />
+          <div className="mb-5 flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-semibold text-foreground">Default Notification Triggers</h2>
           </div>
-          <div className="space-y-3.5">
+          <div className="flex flex-col gap-3.5">
             <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-foreground">
               <input
                 type="checkbox"
@@ -353,7 +353,7 @@ function Content(props: AdminPageProps) {
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-1">
           <button
             type="submit"
             disabled={updateSettingsMutation.isPending}
@@ -368,10 +368,10 @@ function Content(props: AdminPageProps) {
       {/* Test Email Section */}
       <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
         <div className="mb-4 flex items-center gap-2">
-          <Send className="h-4 w-4 text-primary" />
+          <Send className="h-5 w-5 text-primary" />
           <h2 className="text-base sm:text-lg font-semibold text-foreground">Send Test Email</h2>
         </div>
-        <p className="mb-4 text-xs text-muted-foreground">
+        <p className="mb-4 text-xs sm:text-sm text-muted-foreground">
           Send a diagnostic test email to verify credentials and endpoint reachability.
         </p>
         <form onSubmit={handleSendTest} className="flex flex-col gap-3 sm:flex-row">
@@ -418,7 +418,7 @@ function Content(props: AdminPageProps) {
       <div className="rounded-xl border border-border/60 bg-card p-5 sm:p-6 shadow-xs">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
+            <Users className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-semibold text-foreground">User Email Overrides</h2>
           </div>
           <button
@@ -431,7 +431,7 @@ function Content(props: AdminPageProps) {
           </button>
         </div>
 
-        <p className="mb-4 text-xs text-muted-foreground">
+        <p className="mb-4 text-xs sm:text-sm text-muted-foreground">
           Map specific user IDs (for accounts whose login username is not an email) to their destination email addresses.
         </p>
 
