@@ -178,112 +178,38 @@
       }
     ]
   },
-  "extensions": [
-    {
-      "point": "project.settings.tab",
-      "component": "ProjectEmailSettingsTab",
-      "title": "Email Notifications"
-    },
-    {
-      "point": "admin.page",
-      "component": "AdminEmailSettingsPage",
-      "title": "Email Notifications",
-      "route": "/admin/email-notifications"
-    }
-  ],
-  "mcp": {
-    "module": "dist/mcp.js",
-    "tools": [
+  "frontend": {
+    "remoteEntryUrl": "/plugins/com.paca.email-notifications/assets/remoteEntry.js",
+    "extensionPoints": [
       {
-        "name": "email_notifications_get_settings",
-        "description": "Get email notification settings (global or for a specific project)",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "project_id": { "type": "string", "description": "Optional project UUID" }
-          }
-        }
+        "point": "project.settings.tab",
+        "component": "ProjectEmailSettingsTab",
+        "label": "Email Notifications",
+        "order": 10
       },
       {
-        "name": "email_notifications_update_settings",
-        "description": "Update email notification configuration (provider, endpoint, API key, from address, triggers)",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "project_id": { "type": "string", "description": "Optional project UUID" },
-            "provider": { "type": "string", "description": "Provider: yandex_postbox, resend, sendgrid, mailgun, postmark, brevo, webhook" },
-            "endpoint": { "type": "string", "description": "API Endpoint URL" },
-            "api_key": { "type": "string", "description": "API Key / IAM Token" },
-            "from_email": { "type": "string", "description": "Sender email address" },
-            "from_name": { "type": "string", "description": "Sender display name" },
-            "notify_on_assign": { "type": "boolean" },
-            "notify_on_mention": { "type": "boolean" },
-            "notify_on_update": { "type": "boolean" }
-          }
-        }
-      },
+        "point": "admin.page",
+        "component": "AdminEmailSettingsPage",
+        "label": "Email Notifications",
+        "order": 10
+      }
+    ],
+    "navItems": [
       {
-        "name": "email_notifications_get_logs",
-        "description": "Get recent email dispatch logs (audit trail)",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "project_id": { "type": "string", "description": "Optional project UUID" },
-            "limit": { "type": "number", "description": "Number of log entries (default: 50)" }
-          }
-        }
-      },
-      {
-        "name": "email_notifications_send_test",
-        "description": "Send a test email using current or custom configuration",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "project_id": { "type": "string", "description": "Optional project UUID" },
-            "recipient_email": { "type": "string", "description": "Target test email address" },
-            "provider": { "type": "string" },
-            "endpoint": { "type": "string" },
-            "api_key": { "type": "string" },
-            "from_email": { "type": "string" },
-            "from_name": { "type": "string" }
-          },
-          "required": ["recipient_email"]
-        }
-      },
-      {
-        "name": "email_notifications_list_overrides",
-        "description": "List all user ID to email override mappings",
-        "inputSchema": {
-          "type": "object",
-          "properties": {}
-        }
-      },
-      {
-        "name": "email_notifications_save_override",
-        "description": "Map a user ID to a specific email address",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "user_id": { "type": "string", "description": "User UUID" },
-            "email": { "type": "string", "description": "Email address" }
-          },
-          "required": ["user_id", "email"]
-        }
-      },
-      {
-        "name": "email_notifications_delete_override",
-        "description": "Remove a user ID to email override mapping",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "user_id": { "type": "string", "description": "User UUID" }
-          },
-          "required": ["user_id"]
-        }
+        "scope": "admin",
+        "slug": "email-notifications",
+        "label": "Email Notifications",
+        "icon": "Mail",
+        "component": "AdminEmailSettingsPage",
+        "order": 10
       }
     ]
   },
+  "mcp": {
+    "remoteEntryUrl": "/plugins-mcp/com.paca.email-notifications/mcp.js"
+  },
   "skills": {
+    "baseUrl": "/plugins-skills/com.paca.email-notifications",
     "names": [
       "paca-email-notifications"
     ]
